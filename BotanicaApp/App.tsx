@@ -15,6 +15,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Alert,
+  Linking,
   PanResponder
 } from 'react-native';
 
@@ -138,7 +139,7 @@ function MenuScreen() {
   const [selectedCategory, setSelectedCategory] = useState('1');
   const [isScrolling, setIsScrolling] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const categoriesRef = useRef<FlatList>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const categoryRefs = useRef<{[key: string]: View}>({});
@@ -542,7 +543,7 @@ function HallMapScreen() {
         hallMapStyles.table,
         !table.isAvailable && hallMapStyles.tableOccupied,
         selectedTable === table.id && hallMapStyles.tableSelected,
-        Platform.OS === 'android' && hallMapStyles.tableAndroid, // Специальные стили для Android
+        Platform.OS === 'android' && hallMapStyles.tableAndroid,
         {
           left: table.position.x,
           top: table.position.y,
@@ -550,7 +551,6 @@ function HallMapScreen() {
       ]}
       onPress={() => handleTableSelect(table)}
       disabled={!table.isAvailable}
-      // Для Android: улучшаем отклик на касание
       activeOpacity={0.7}
       delayPressIn={0}
     >
@@ -670,7 +670,7 @@ function HallMapScreen() {
   );
 }
 
-// Остальные экраны (простые заглушки)
+// Остальные экраны
 function ProfileScreen() {
   return (
     <View style={commonStyles.simpleContainer}>
@@ -681,16 +681,221 @@ function ProfileScreen() {
 }
 
 function AboutScreen() {
+  // Функции для открытия ссылок
+  const openPhone = () => {
+    Linking.openURL('tel:+79128267200');
+  };
+
+  const openVK = () => {
+    Linking.openURL('https://melbet.ru/ru/sport');
+  };
+
+  const openMap = () => {
+    const address = 'Кировская обл., г.Киров, улица Всесвятская 72, этаж 2';
+    const url = Platform.OS === 'ios' 
+      ? `http://maps.apple.com/?q=${encodeURIComponent(address)}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+    
+    Linking.openURL(url);
+  };
+
   return (
-    <View style={commonStyles.simpleContainer}>
-      <Text style={commonStyles.simpleTitle}>ℹ️ О нас</Text>
-      <Text>Информация о кафе Botanica</Text>
-    </View>
+    <ScrollView style={aboutStyles.container} showsVerticalScrollIndicator={false}>
+
+      {/* Основное изображение */}
+      <View style={aboutStyles.imageContainer}>
+        <Image 
+          source={{ uri: 'https://avatars.mds.yandex.net/get-altay/13299246/2a0000018e60570e0f370fa0382d858dc5a3/XXXL' }}
+          style={aboutStyles.mainImage}
+          resizeMode="cover"
+        />
+      </View>
+
+      {/* Приветственный текст */}
+      <View style={aboutStyles.section}>
+        <Text style={aboutStyles.sectionTitle}>Добро пожаловать в Botanica!</Text>
+        <Text style={aboutStyles.sectionText}>
+          Уютная кальянная в самом сердце Кирова, где современный комфорт 
+          встречается с атмосферой расслабления и качественного отдыха.
+        </Text>
+      </View>
+
+      {/* Секция скидок */}
+      <View style={aboutStyles.section}>
+        <Text style={aboutStyles.sectionTitle}>🎁 Наши скидки</Text>
+        
+        {/* Дневная скидка */}
+        <View style={aboutStyles.discountItem}>
+          <View style={aboutStyles.discountIcon}>
+            <Text style={aboutStyles.icon}>🌞</Text>
+          </View>
+          <View style={aboutStyles.discountInfo}>
+            <Text style={aboutStyles.discountTitle}>Дневная скидка 25% на бар и кальян</Text>
+            <Text style={aboutStyles.discountDescription}>
+              В будни, с 11:00 до 17:00
+            </Text>
+          </View>
+        </View>
+
+        {/* Скидка в день рождения */}
+        <View style={aboutStyles.discountItem}>
+          <View style={aboutStyles.discountIcon}>
+            <Text style={aboutStyles.icon}>🎂</Text>
+          </View>
+          <View style={aboutStyles.discountInfo}>
+            <Text style={aboutStyles.discountTitle}>Скидка в день рождения 10%</Text>
+            <Text style={aboutStyles.discountNote}>
+              *Скидка дня рождения применяется только при предъявлении документа, удостоверяющего личность
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Контактная информация */}
+      <View style={aboutStyles.section}>
+        <Text style={aboutStyles.sectionTitle}>📞 Контакты</Text>
+        
+        {/* Телефон */}
+        <TouchableOpacity style={aboutStyles.contactItem} onPress={openPhone}>
+          <View style={aboutStyles.contactIcon}>
+            <Text style={aboutStyles.icon}>📞</Text>
+          </View>
+          <View style={aboutStyles.contactInfo}>
+            <Text style={aboutStyles.contactLabel}>Телефон администратора</Text>
+            <Text style={aboutStyles.contactValue}>+7 (912) 826-72-00</Text>
+            <Text style={aboutStyles.contactHint}>Нажмите для звонка</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Адрес */}
+        <TouchableOpacity style={aboutStyles.contactItem} onPress={openMap}>
+          <View style={aboutStyles.contactIcon}>
+            <Text style={aboutStyles.icon}>📍</Text>
+          </View>
+          <View style={aboutStyles.contactInfo}>
+            <Text style={aboutStyles.contactLabel}>Наш адрес</Text>
+            <Text style={aboutStyles.contactValue}>
+              г. Киров, ул. Всесвятская 72, 2 этаж
+            </Text>
+            <Text style={aboutStyles.contactHint}>Нажмите для открытия карты</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Социальные сети */}
+        <TouchableOpacity style={aboutStyles.contactItem} onPress={openVK}>
+          <View style={aboutStyles.contactIcon}>
+            <Text style={aboutStyles.icon}>👥</Text>
+          </View>
+          <View style={aboutStyles.contactInfo}>
+            <Text style={aboutStyles.contactLabel}>Мы ВКонтакте</Text>
+            <Text style={aboutStyles.contactValue}>vk.com/hp_botanica</Text>
+            <Text style={aboutStyles.contactHint}>Нажмите для перехода</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      {/* Галерея изображений */}
+      <View style={aboutStyles.section}>
+        <Text style={aboutStyles.sectionTitle}>🍃 Наша атмосфера</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={aboutStyles.gallery}>
+          <Image 
+            source={{ uri: 'https://avatars.mds.yandex.net/get-altay/7179902/2a00000183d8472e516bf9e59696257889b7/XXXL' }}
+            style={aboutStyles.galleryImage}
+          />
+          <Image 
+            source={{ uri: 'https://avatars.mds.yandex.net/get-altay/5473371/2a0000017f28a6bb99aa7591c16e83d47050/XXXL' }}
+            style={aboutStyles.galleryImage}
+          />
+          <Image 
+            source={{ uri: 'https://avatars.mds.yandex.net/get-altay/10636707/2a0000018b0615bf1b948c772946e9edd001/XXXL' }}
+            style={aboutStyles.galleryImage}
+          />
+          <Image 
+            source={{ uri: 'https://i.pinimg.com/736x/63/7f/10/637f106bb34579117e5a344ffdd8a5a7.jpg' }}
+            style={aboutStyles.galleryImage}
+          />
+        </ScrollView>
+      </View>
+
+      {/* Услуги */}
+      <View style={aboutStyles.section}>
+        <Text style={aboutStyles.sectionTitle}>✨ Наши услуги</Text>
+        
+        <View style={aboutStyles.servicesGrid}>
+          <View style={aboutStyles.serviceItem}>
+            <Text style={aboutStyles.serviceIcon}>💨</Text>
+            <Text style={aboutStyles.serviceTitle}>Кальяны</Text>
+            <Text style={aboutStyles.serviceDescription}>
+              Широкий выбор табаков и вкусов
+            </Text>
+          </View>
+          
+          <View style={aboutStyles.serviceItem}>
+            <Text style={aboutStyles.serviceIcon}>🍹</Text>
+            <Text style={aboutStyles.serviceTitle}>Напитки</Text>
+            <Text style={aboutStyles.serviceDescription}>
+              Освежающие коктейли и чаи
+            </Text>
+          </View>
+          
+          <View style={aboutStyles.serviceItem}>
+            <Text style={aboutStyles.serviceIcon}>🎵</Text>
+            <Text style={aboutStyles.serviceTitle}>Музыка</Text>
+            <Text style={aboutStyles.serviceDescription}>
+              Приятная атмосферная музыка
+            </Text>
+          </View>
+          
+          <View style={aboutStyles.serviceItem}>
+            <Text style={aboutStyles.serviceIcon}>🎮</Text>
+            <Text style={aboutStyles.serviceTitle}>Развлечения</Text>
+            <Text style={aboutStyles.serviceDescription}>
+              Настольные игры и приставка
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Время работы */}
+      <View style={aboutStyles.section}>
+        <Text style={aboutStyles.sectionTitle}>🕒 Время работы</Text>
+        <View style={aboutStyles.schedule}>
+          <View style={aboutStyles.scheduleItem}>
+            <Text style={aboutStyles.scheduleDay}>Пн - Чт</Text>
+            <Text style={aboutStyles.scheduleTime}>11:00 - 01:00</Text>
+          </View>
+          <View style={aboutStyles.scheduleItem}>
+            <Text style={aboutStyles.scheduleDay}>Пятница</Text>
+            <Text style={aboutStyles.scheduleTime}>11:00 - 03:00</Text>
+          </View>
+          <View style={aboutStyles.scheduleItem}>
+            <Text style={aboutStyles.scheduleDay}>Сб - Вс</Text>
+            <Text style={aboutStyles.scheduleTime}>12:00 - 03:00</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Призыв к действию */}
+      <View style={aboutStyles.ctaSection}>
+        <Text style={aboutStyles.ctaTitle}>Ждём в гости! 🍃</Text>
+        <Text style={aboutStyles.ctaText}>
+          Бронируйте столики заранее по телефону или через администратора
+        </Text>
+        
+        <TouchableOpacity style={aboutStyles.ctaButton} onPress={openPhone}>
+          <Text style={aboutStyles.ctaButtonText}>📞 Забронировать стол</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Отступ внизу */}
+      <View style={aboutStyles.bottomSpace} />
+    </ScrollView>
   );
 }
 
 const Tab = createBottomTabNavigator();
 
+// Главный компонент приложения - ЕДИНСТВЕННЫЙ экспорт по умолчанию
 export default function App() {
   return (
     <NavigationContainer>
@@ -717,7 +922,7 @@ export default function App() {
             title: 'Меню',
             tabBarLabel: 'Меню',
             tabBarIcon: ({ color, size }) => (
-              <Text style={{ fontSize: 20 }}>🍽️</Text>
+              <Text style={{ fontSize: size, color }}>🍽️</Text>
             ),
           }}
         />
@@ -728,7 +933,7 @@ export default function App() {
             title: 'Схема зала',
             tabBarLabel: 'Схема зала',
             tabBarIcon: ({ color, size }) => (
-              <Text style={{ fontSize: 20 }}>🗺️</Text>
+              <Text style={{ fontSize: size, color }}>🗺️</Text>
             ),
           }}
         />
@@ -739,7 +944,7 @@ export default function App() {
             title: 'Профиль',
             tabBarLabel: 'Профиль',
             tabBarIcon: ({ color, size }) => (
-              <Text style={{ fontSize: 20 }}>👤</Text>
+              <Text style={{ fontSize: size, color }}>👤</Text>
             ),
           }}
         />
@@ -747,10 +952,10 @@ export default function App() {
           name="About"
           component={AboutScreen}
           options={{
-            title: 'О нас',
-            tabBarLabel: 'О нас',
+            title: '«О нас»',
+            tabBarLabel: '«О нас»',
             tabBarIcon: ({ color, size }) => (
-              <Text style={{ fontSize: 20 }}>ℹ️</Text>
+              <Text style={{ fontSize: size, color }}>ℹ️</Text>
             ),
           }}
         />
@@ -910,7 +1115,6 @@ const hallMapStyles = StyleSheet.create({
     color: '#2E7D32',
     textAlign: 'center',
   },
-  // Контейнер для элементов управления
   controls: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -918,7 +1122,6 @@ const hallMapStyles = StyleSheet.create({
     marginBottom: 15,
     paddingHorizontal: 10,
   },
-  // Элементы управления масштабом
   zoomControls: {
     flexDirection: 'row',
   },
@@ -941,7 +1144,6 @@ const hallMapStyles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
   },
-  // Кнопка сброса
   resetButton: {
     paddingHorizontal: 15,
     paddingVertical: 10,
@@ -960,7 +1162,6 @@ const hallMapStyles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
   },
-  // Информация о масштабе
   scaleInfo: {
     alignItems: 'center',
     marginBottom: 15,
@@ -979,7 +1180,6 @@ const hallMapStyles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
-  // Контейнер для карты с возможностью перемещения
   mapContainer: {
     flex: 1,
     backgroundColor: '#E8F5E8',
@@ -990,7 +1190,6 @@ const hallMapStyles = StyleSheet.create({
     marginBottom: 20,
     minHeight: 400,
   },
-  // Большая карта
   simpleMap: {
     width: 600,
     height: 500,
@@ -1090,22 +1289,256 @@ const hallMapStyles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 12,
   },
-  // Специальные стили для Android
   mapContainerAndroid: {
-    // Улучшаем обработку жестов на Android
     borderWidth: 1,
     borderColor: '#BDBDBD',
   },
   tableAndroid: {
-    // Увеличиваем область касания для Android
     minWidth: 55,
     minHeight: 55,
   },
   tableNumberAndroid: {
-    // Увеличиваем текст для лучшей читаемости на Android
     fontSize: 18,
   },
 });
+
+// Стили для AboutScreen
+const aboutStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  header: {
+    alignItems: 'center',
+    paddingVertical: 25,
+    paddingHorizontal: 20,
+    backgroundColor: '#2E7D32',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 5,
+  },
+  headerSubtitle: {
+    fontSize: 18,
+    color: '#E8F5E8',
+    fontWeight: '500',
+  },
+  imageContainer: {
+    padding: 20,
+    paddingBottom: 0,
+  },
+  mainImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 15,
+    backgroundColor: '#E8F5E8',
+  },
+  section: {
+    backgroundColor: '#fff',
+    margin: 16,
+    padding: 20,
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2E7D32',
+    marginBottom: 15,
+  },
+  sectionText: {
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#555',
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  contactIcon: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#E8F5E8',
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  icon: {
+    fontSize: 18,
+  },
+  contactInfo: {
+    flex: 1,
+  },
+  contactLabel: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 2,
+  },
+  contactValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  contactHint: {
+    fontSize: 12,
+    color: '#2E7D32',
+    fontStyle: 'italic',
+  },
+  gallery: {
+    marginHorizontal: -5,
+  },
+  galleryImage: {
+    width: 280,
+    height: 180,
+    borderRadius: 12,
+    marginHorizontal: 5,
+    backgroundColor: '#E8F5E8',
+  },
+  servicesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginHorizontal: -5,
+  },
+  serviceItem: {
+    width: '48%',
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  serviceIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  serviceTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#2E7D32',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  serviceDescription: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  schedule: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 10,
+    padding: 15,
+  },
+  scheduleItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  scheduleDay: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  scheduleTime: {
+    fontSize: 16,
+    color: '#2E7D32',
+    fontWeight: 'bold',
+  },
+  ctaSection: {
+    backgroundColor: '#2E7D32',
+    margin: 16,
+    padding: 25,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  ctaTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  ctaText: {
+    fontSize: 16,
+    color: '#E8F5E8',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  ctaButton: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  ctaButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2E7D32',
+  },
+  bottomSpace: {
+    height: 30,
+  },
+  discountItem: {
+  flexDirection: 'row',
+  alignItems: 'flex-start',
+  paddingVertical: 12,
+  borderBottomWidth: 1,
+  borderBottomColor: '#f0f0f0',
+  },
+  discountIcon: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#E8F5E8',
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  discountInfo: {
+    flex: 1,
+  },
+  discountTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2E7D32',
+    marginBottom: 4,
+  },
+  discountDescription: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
+  },
+  discountNote: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    lineHeight: 16,
+    marginTop: 4,
+  },
+  });
 
 // Общие стили
 const commonStyles = StyleSheet.create({
