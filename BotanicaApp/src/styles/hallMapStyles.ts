@@ -5,19 +5,6 @@ export const hallMapStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  header: {
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#2E7D32',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1B5E20',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
   content: {
     flex: 1,
   },

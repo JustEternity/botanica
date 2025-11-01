@@ -221,10 +221,6 @@ export default function HallMapScreen() {
 
   return (
     <View style={hallMapStyles.container}>
-      {/* Заголовок */}
-      <View style={hallMapStyles.header}>
-        <Text style={hallMapStyles.headerTitle}>🗺️ Схема зала</Text>
-      </View>
 
       {/* Основной контент - теперь карта занимает все пространство */}
       <View style={hallMapStyles.content}>
