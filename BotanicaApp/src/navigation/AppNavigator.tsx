@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import MenuScreen from '../screens/MenuScreen';
 import HallMapScreen from '../screens/HallMapScreen';
-import ProfileScreen from '../screens/ProfileScreen';
+import ProfileStack from './ProfileStack';
 import AboutScreen from '../screens/AboutScreen';
 
 const Tab = createBottomTabNavigator();
@@ -52,7 +52,7 @@ export default function AppNavigator() {
         />
         <Tab.Screen
           name="Profile"
-          component={ProfileScreen}
+          component={ProfileStack}
           options={{
             title: 'Профиль',
             tabBarLabel: 'Профиль',

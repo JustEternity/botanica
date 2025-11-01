@@ -5,12 +5,15 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
-  Alert,
   ScrollView,
 } from 'react-native';
 import { profileStyles } from '../styles/profileStyles';
 
-export default function ProfileScreen() {
+interface ProfileScreenProps {
+  navigation: any;
+}
+
+export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('+7');
 
@@ -19,17 +22,14 @@ export default function ProfileScreen() {
   };
 
   const handlePhoneChange = (text: string) => {
-    // Всегда начинаем с +7
     if (!text.startsWith('+7')) {
       setPhone('+7');
       return;
     }
 
-    // Удаляем все нецифровые символы, кроме +
     const cleaned = text.replace(/[^\d+]/g, '');
 
-    // Ограничиваем общую длину (код страны + 10 цифр)
-    if (cleaned.length > 12) { // +7 + 10 цифр
+    if (cleaned.length > 12) {
       return;
     }
 
@@ -39,7 +39,7 @@ export default function ProfileScreen() {
   const formatDisplayPhone = (phone: string) => {
     if (phone.length <= 2) return phone;
 
-    const digits = phone.slice(2); // убираем +7
+    const digits = phone.slice(2);
 
     if (digits.length <= 3) return `+7 (${digits}`;
     if (digits.length <= 6) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
@@ -48,17 +48,16 @@ export default function ProfileScreen() {
   };
 
   const handlePhotoPress = () => {
-    Alert.alert('Смена фото', 'Функция смены фото в разработке');
+    // Функция смены фото
   };
 
   const handleOrderHistory = () => {
-    Alert.alert('История заказов', 'Раздел в разработке');
+    navigation.navigate('OrderHistory');
   };
 
   return (
     <ScrollView style={profileStyles.container}>
-
-
+      {/* Убираем заголовок, так как он теперь в TabNavigator */}
       <View style={profileStyles.content}>
         <View style={profileStyles.photoContainer}>
           <TouchableOpacity
