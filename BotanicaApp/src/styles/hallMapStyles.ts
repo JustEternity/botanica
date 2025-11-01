@@ -1,4 +1,6 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Dimensions } from 'react-native';
+
+const { width } = Dimensions.get('window');
 
 export const hallMapStyles = StyleSheet.create({
   container: {
@@ -7,77 +9,50 @@ export const hallMapStyles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    padding: 16,
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#2E7D32',
+  timeSelectionColumn: {
+    flexDirection: 'column',
+  },
+  timePickerContainer: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  timePickerButton: {
+    backgroundColor: '#f8f9fa',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    width: '100%',
+  },
+  timePickerText: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '500',
     textAlign: 'center',
   },
-  // Убраны старые элементы управления
-  controls: {
-    display: 'none',
-  },
-  zoomControls: {
-    flexDirection: 'row',
-  },
-  zoomButton: {
-    width: 50,
-    height: 50,
-    backgroundColor: '#2E7D32',
-    borderRadius: 25,
-    justifyContent: 'center',
+  // Контейнер для пикера
+  pickerContainer: {
+    marginTop: 10,
     alignItems: 'center',
-    marginHorizontal: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
+    width: '100%',
   },
-  zoomButtonText: {
-    fontSize: 24,
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  resetButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: '#757575',
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  resetButtonText: {
-    fontSize: 14,
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  scaleInfo: {
-    display: 'none',
-  },
-  scaleText: {
-    fontSize: 16,
-    color: '#2E7D32',
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  helpText: {
+
+  timeRestrictionText: {
     fontSize: 12,
     color: '#666',
     textAlign: 'center',
+    marginBottom: 12,
+    fontStyle: 'italic',
   },
+
   mapContainer: {
     flex: 1,
     backgroundColor: '#E8F5E8',
     overflow: 'hidden',
-    position: 'relative', // Для позиционирования элементов поверх карты
+    position: 'relative',
   },
   simpleMap: {
     width: 600,
@@ -152,35 +127,6 @@ export const hallMapStyles = StyleSheet.create({
     fontSize: 12,
     color: '#333',
   },
-  selectedTableInfo: {
-    backgroundColor: '#3498db',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  selectedTableText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginRight: 10,
-  },
-  clearSelectionButton: {
-    width: 24,
-    height: 24,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  clearSelectionText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
   mapContainerAndroid: {
     borderWidth: 1,
     borderColor: '#BDBDBD',
@@ -192,7 +138,6 @@ export const hallMapStyles = StyleSheet.create({
   tableNumberAndroid: {
     fontSize: 18,
   },
-  // Новые стили для элементов поверх карты
   controlsOverlay: {
     position: 'absolute',
     top: 16,
@@ -245,5 +190,99 @@ export const hallMapStyles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 2,
     elevation: 3,
+  },
+  zoomButtonText: {
+    fontSize: 24,
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  resetButtonText: {
+    fontSize: 14,
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  scaleText: {
+    fontSize: 16,
+    color: '#2E7D32',
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  timeSelectionPanel: {
+  backgroundColor: 'white',
+  padding: 16,
+  borderRadius: 12,
+  marginBottom: 16,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 3,
+  },
+  timeSelectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2E7D32',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  timeSelectionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 0,
+  },
+  timePickerCompact: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  timePickerLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 6,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  timePickerButtonCompact: {
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    width: '90%',
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  timePickerButtonActive: {
+    backgroundColor: '#E8F5E8',
+    borderColor: '#2E7D32',
+    borderWidth: 2,
+  },
+  timePickerTextCompact: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  timePickerTextActive: {
+    color: '#2E7D32',
+  },
+  dateTextCompact: {
+    fontSize: 11,
+    color: '#666',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  timeSeparator: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingBottom: 20,
+  },
+  timeSeparatorText: {
+    fontSize: 18,
+    color: '#666',
+    fontWeight: 'bold',
   },
 });

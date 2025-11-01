@@ -6,12 +6,85 @@ import {
   Alert,
   Platform,
   PanResponder,
+  Dimensions,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Table } from '../types';
 import { hallMapStyles } from '../styles/hallMapStyles';
+import TableReservationModal from './TableReservationScreen';
+
+const { width } = Dimensions.get('window');
 
 export default function HallMapScreen() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedTableData, setSelectedTableData] = useState<Table | null>(null);
+
+  // Функция для получения времени открытия (12:00 текущего дня)
+  const getOpeningTime = (date: Date) => {
+    const opening = new Date(date);
+    opening.setHours(12, 0, 0, 0);
+    return opening;
+  };
+
+  // Функция для получения времени закрытия (04:00 следующего дня)
+  const getClosingTime = (date: Date) => {
+    const closing = new Date(date);
+    closing.setDate(closing.getDate() + 1);
+    closing.setHours(4, 0, 0, 0);
+    return closing;
+  };
+
+  // Функция для корректировки времени окончания в пределах рабочего дня
+  const adjustEndTimeToLimit = (time: Date) => {
+    const closingTime = getClosingTime(time);
+    return time > closingTime ? new Date(closingTime) : new Date(time);
+  };
+
+  // Функция для проверки, находится ли время в рабочих пределах
+  const isTimeInWorkingHours = (time: Date) => {
+    const openingTime = getOpeningTime(time);
+    const closingTime = getClosingTime(time);
+    return time >= openingTime && time <= closingTime;
+  };
+
+  // Функция для получения минимального времени начала
+  const getMinStartTime = () => {
+    const now = new Date();
+    const openingTime = getOpeningTime(now);
+    return now > openingTime ? new Date(now) : new Date(openingTime);
+  };
+
+  // Функция для получения максимального времени окончания
+  const getMaxEndTime = (startTime: Date) => {
+    return getClosingTime(startTime);
+  };
+
+  // Состояния для времени бронирования
+  const [startTime, setStartTime] = useState(() => {
+    const now = new Date();
+    // Устанавливаем минимальное время начала - 12:00 текущего дня
+    const minStart = new Date(now);
+    if (now.getHours() < 12) {
+      minStart.setHours(12, 0, 0, 0);
+    } else {
+      // Если уже после 12:00, начинаем с текущего времени
+      minStart.setMinutes(now.getMinutes() + 5); // +5 минут для удобства
+    }
+    return minStart;
+  });
+
+  const [endTime, setEndTime] = useState(() => {
+    const now = new Date();
+    const defaultEnd = new Date(now);
+    // Устанавливаем время окончания по умолчанию на 2 часа вперед, но не позже 04:00 следующего дня
+    defaultEnd.setHours(now.getHours() + 2, 0, 0, 0);
+    return adjustEndTimeToLimit(defaultEnd);
+  });
+
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+
   const [transform, setTransform] = useState({
     scale: 1,
     translateX: 0,
@@ -35,12 +108,11 @@ export default function HallMapScreen() {
     transformRef.current = transform;
   }, [transform]);
 
-  // Создаем PanResponder для обработки жестов с улучшениями для Android
+  // Создаем PanResponder для обработки жестов
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        // Для Android: активируем только при заметном перемещении
         const { dx, dy } = gestureState;
         return Math.abs(dx) > 5 || Math.abs(dy) > 5;
       },
@@ -48,14 +120,12 @@ export default function HallMapScreen() {
       onPanResponderGrant: (evt, gs) => {
         const touches = evt.nativeEvent.touches;
 
-        // Сохраняем начальное состояние при начале жеста
         panStartRef.current = {
           translateX: transformRef.current.translateX,
           translateY: transformRef.current.translateY,
           scale: transformRef.current.scale,
         };
 
-        // Если два пальца, сохраняем начальное состояние для масштабирования
         if (touches.length === 2) {
           const touch1 = touches[0];
           const touch2 = touches[1];
@@ -74,7 +144,6 @@ export default function HallMapScreen() {
       onPanResponderMove: (evt, gs) => {
         const touches = evt.nativeEvent.touches;
 
-        // Перемещение одним пальцем
         if (touches.length === 1) {
           const sensitivity = Platform.OS === 'android' ? 1.2 : 0.8;
           const newTranslateX = panStartRef.current.translateX + (gs.dx / panStartRef.current.scale) * sensitivity;
@@ -86,7 +155,6 @@ export default function HallMapScreen() {
             translateY: newTranslateY
           }));
         }
-        // Масштабирование двумя пальцами
         else if (touches.length === 2) {
           const touch1 = touches[0];
           const touch2 = touches[1];
@@ -95,7 +163,6 @@ export default function HallMapScreen() {
             Math.pow(touch2.pageY - touch1.pageY, 2)
           );
 
-          // Вычисляем изменение масштаба относительно начального расстояния
           if (zoomStartRef.current.distance > 0) {
             const scaleChange = currentDistance / zoomStartRef.current.distance;
             const newScale = Math.max(0.3, Math.min(3, zoomStartRef.current.scale * scaleChange));
@@ -109,62 +176,171 @@ export default function HallMapScreen() {
       },
 
       onPanResponderRelease: () => {
-        // Сбрасываем начальное состояние масштабирования
         zoomStartRef.current.distance = 0;
       },
 
-      // Для Android: предотвращаем прерывание жестов
       onPanResponderTerminationRequest: () => false,
     })
   ).current;
 
-  // Данные столов с позициями на карте (20 столов)
+  // Данные столов с описаниями
   const tables: Table[] = [
-    { id: '1', number: 1, isAvailable: true, position: { x: 50, y: 50 } },
-    { id: '2', number: 2, isAvailable: true, position: { x: 150, y: 50 } },
-    { id: '3', number: 3, isAvailable: false, position: { x: 250, y: 50 } },
-    { id: '4', number: 4, isAvailable: true, position: { x: 350, y: 50 } },
-    { id: '5', number: 5, isAvailable: true, position: { x: 450, y: 50 } },
-    { id: '6', number: 6, isAvailable: true, position: { x: 50, y: 150 } },
-    { id: '7', number: 7, isAvailable: false, position: { x: 150, y: 150 } },
-    { id: '8', number: 8, isAvailable: true, position: { x: 250, y: 150 } },
-    { id: '9', number: 9, isAvailable: true, position: { x: 350, y: 150 } },
-    { id: '10', number: 10, isAvailable: true, position: { x: 450, y: 150 } },
-    { id: '11', number: 11, isAvailable: true, position: { x: 50, y: 250 } },
-    { id: '12', number: 12, isAvailable: false, position: { x: 150, y: 250 } },
-    { id: '13', number: 13, isAvailable: true, position: { x: 250, y: 250 } },
-    { id: '14', number: 14, isAvailable: true, position: { x: 350, y: 250 } },
-    { id: '15', number: 15, isAvailable: true, position: { x: 450, y: 250 } },
-    { id: '16', number: 16, isAvailable: true, position: { x: 50, y: 350 } },
-    { id: '17', number: 17, isAvailable: false, position: { x: 150, y: 350 } },
-    { id: '18', number: 18, isAvailable: true, position: { x: 250, y: 350 } },
-    { id: '19', number: 19, isAvailable: true, position: { x: 350, y: 350 } },
-    { id: '20', number: 20, isAvailable: true, position: { x: 450, y: 350 } },
+    {
+      id: '1', number: 1, isAvailable: true, position: { x: 50, y: 50 },
+      description: 'Уютный угловой столик у окна с видом на сад. Идеален для романтического вечера.',
+      maxPeople: 4,
+    },
+    {
+      id: '2', number: 2, isAvailable: true, position: { x: 150, y: 50 },
+      description: 'Центральный столик в главном зале. Подходит для деловых встреч.',
+      maxPeople: 6,
+    },
+    {
+      id: '3', number: 3, isAvailable: false, position: { x: 250, y: 50 },
+      description: 'VIP столик с отдельной зоной для кальяна.',
+      maxPeople: 8,
+    },
+    { id: '4', number: 4, isAvailable: true, position: { x: 350, y: 50 }, description: 'Компактный столик для двоих.', maxPeople: 2 },
+    { id: '5', number: 5, isAvailable: true, position: { x: 450, y: 50 }, description: 'Просторный столик с мягкими диванами.', maxPeople: 6 },
+    { id: '6', number: 6, isAvailable: true, position: { x: 50, y: 150 }, description: 'Стандартный столик', maxPeople: 4 },
+    { id: '7', number: 7, isAvailable: false, position: { x: 150, y: 150 }, description: 'VIP зона', maxPeople: 8 },
+    { id: '8', number: 8, isAvailable: true, position: { x: 250, y: 150 }, description: 'Угловой столик', maxPeople: 4 },
+    { id: '9', number: 9, isAvailable: true, position: { x: 350, y: 150 }, description: 'Центральный столик', maxPeople: 6 },
+    { id: '10', number: 10, isAvailable: true, position: { x: 450, y: 150 }, description: 'Барная стойка', maxPeople: 2 },
   ];
 
-  // Улучшенный обработчик выбора стола для Android
+  // Обработчики для выбора времени
+  const handleStartTimeChange = (event: any, selectedDate?: Date) => {
+    setShowStartPicker(false);
+    if (selectedDate) {
+      const minStartTime = getMinStartTime();
+      let newStartTime = selectedDate < minStartTime ? new Date(minStartTime) : new Date(selectedDate);
+
+      // Проверяем, что время начала в рабочих пределах
+      if (!isTimeInWorkingHours(newStartTime)) {
+        newStartTime = getOpeningTime(newStartTime);
+      }
+
+      setStartTime(newStartTime);
+
+      // Автоматически обновляем время окончания
+      const newEndTime = new Date(newStartTime);
+      newEndTime.setHours(newStartTime.getHours() + 2);
+      setEndTime(adjustEndTimeToLimit(newEndTime));
+    }
+  };
+
+  const handleEndTimeChange = (event: any, selectedDate?: Date) => {
+    setShowEndPicker(false);
+    if (selectedDate) {
+      const maxEndTime = getMaxEndTime(startTime);
+      let newEndTime = selectedDate;
+
+      if (newEndTime <= startTime) {
+        Alert.alert('Ошибка', 'Время окончания должно быть позже времени начала');
+        return;
+      }
+
+      if (newEndTime > maxEndTime) {
+        Alert.alert('Ограничение', 'Бронирование возможно только до 04:00 следующего дня');
+        newEndTime = new Date(maxEndTime);
+      }
+
+      setEndTime(newEndTime);
+    }
+  };
+
+  // Функции для переключения (toggle) пикеров
+  const openStartTimePicker = () => {
+    if (showStartPicker) {
+      setShowStartPicker(false);
+    } else {
+      setShowEndPicker(false);
+      setShowStartPicker(true);
+    }
+  };
+
+  const openEndTimePicker = () => {
+    if (showEndPicker) {
+      setShowEndPicker(false);
+    } else {
+      setShowStartPicker(false);
+      setShowEndPicker(true);
+    }
+  };
+
+  // Форматирование времени для отображения
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const formatDateCompact = (date: Date) => {
+    const today = new Date();
+    const isToday = date.toDateString() === today.toDateString();
+
+    if (isToday) {
+      return 'сегодня';
+    }
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow = date.toDateString() === tomorrow.toDateString();
+
+    if (isTomorrow) {
+      return 'завтра';
+    }
+
+    return date.toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'numeric',
+    }).replace('/', '.');
+  };
+
+  // Обработчик выбора стола
   const handleTableSelect = (table: Table) => {
     if (!table.isAvailable) {
       Alert.alert('Стол занят', `Стол №${table.number} в настоящее время занят`);
       return;
     }
 
-    // Для Android: небольшая задержка для лучшей обратной связи
+    // Закрываем все открытые пикеры при выборе стола
+    setShowStartPicker(false);
+    setShowEndPicker(false);
+
     if (Platform.OS === 'android') {
       setTimeout(() => {
         setSelectedTable(table.id);
-        Alert.alert(
-          'Стол выбран',
-          `Выбран стол №${table.number}`
-        );
+        setSelectedTableData(table);
+        setModalVisible(true);
       }, 50);
     } else {
       setSelectedTable(table.id);
-      Alert.alert(
-        'Стол выбран',
-        `Выбран стол №${table.number}`
-      );
+      setSelectedTableData(table);
+      setModalVisible(true);
     }
+  };
+
+  // Обработчик закрытия модального окна
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setSelectedTable(null);
+  };
+
+  // Обработчик добавления в заказ
+  const handleAddToOrder = (reservationData: any) => {
+    const formatDateTime = (date: Date) => {
+      return `${formatDateCompact(date)} ${formatTime(date)}`;
+    };
+
+    Alert.alert(
+      'Добавлено в заказ',
+      `Стол №${reservationData.table.number} забронирован\nС ${formatDateTime(reservationData.startTime)} по ${formatDateTime(reservationData.endTime)}\nДля ${reservationData.peopleCount} человек(а)`
+    );
+    setModalVisible(false);
+    setSelectedTable(null);
   };
 
   // Обработчик масштабирования кнопками
@@ -191,7 +367,7 @@ export default function HallMapScreen() {
     });
   };
 
-  // Рендер отдельного стола на карте с улучшениями для Android
+  // Рендер отдельного стола на карте
   const renderTable = (table: Table) => (
     <TouchableOpacity
       key={table.id}
@@ -221,9 +397,92 @@ export default function HallMapScreen() {
 
   return (
     <View style={hallMapStyles.container}>
-
-      {/* Основной контент - теперь карта занимает все пространство */}
       <View style={hallMapStyles.content}>
+        {/* Панель выбора времени */}
+        <View style={hallMapStyles.timeSelectionPanel}>
+          <Text style={hallMapStyles.timeSelectionTitle}>Время бронирования</Text>
+          <Text style={hallMapStyles.timeRestrictionText}>Доступно с 12:00 до 04:00 следующего дня</Text>
+
+          {/* Компактный горизонтальный layout */}
+          <View style={hallMapStyles.timeSelectionRow}>
+            {/* Время начала */}
+            <View style={hallMapStyles.timePickerCompact}>
+              <Text style={hallMapStyles.timePickerLabel}>Начало</Text>
+              <TouchableOpacity
+                style={[
+                  hallMapStyles.timePickerButtonCompact,
+                  showStartPicker && hallMapStyles.timePickerButtonActive
+                ]}
+                onPress={openStartTimePicker}
+              >
+                <Text style={[
+                  hallMapStyles.timePickerTextCompact,
+                  showStartPicker && hallMapStyles.timePickerTextActive
+                ]}>
+                  {formatTime(startTime)}
+                </Text>
+                <Text style={hallMapStyles.dateTextCompact}>
+                  {formatDateCompact(startTime)}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Разделитель */}
+            <View style={hallMapStyles.timeSeparator}>
+              <Text style={hallMapStyles.timeSeparatorText}>→</Text>
+            </View>
+
+            {/* Время окончания */}
+            <View style={hallMapStyles.timePickerCompact}>
+              <Text style={hallMapStyles.timePickerLabel}>Окончание</Text>
+              <TouchableOpacity
+                style={[
+                  hallMapStyles.timePickerButtonCompact,
+                  showEndPicker && hallMapStyles.timePickerButtonActive
+                ]}
+                onPress={openEndTimePicker}
+              >
+                <Text style={[
+                  hallMapStyles.timePickerTextCompact,
+                  showEndPicker && hallMapStyles.timePickerTextActive
+                ]}>
+                  {formatTime(endTime)}
+                </Text>
+                <Text style={hallMapStyles.dateTextCompact}>
+                  {formatDateCompact(endTime)}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Пикеры с ограничениями */}
+          {showStartPicker && (
+            <View style={hallMapStyles.pickerContainer}>
+              <DateTimePicker
+                value={startTime}
+                mode="datetime"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleStartTimeChange}
+                minimumDate={getMinStartTime()}
+                maximumDate={getMaxEndTime(startTime)}
+              />
+            </View>
+          )}
+
+          {showEndPicker && (
+            <View style={hallMapStyles.pickerContainer}>
+              <DateTimePicker
+                value={endTime}
+                mode="datetime"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleEndTimeChange}
+                minimumDate={startTime}
+                maximumDate={getMaxEndTime(startTime)}
+              />
+            </View>
+          )}
+        </View>
+
         {/* Контейнер карты с жестами */}
         <View
           style={[
@@ -297,23 +556,17 @@ export default function HallMapScreen() {
             <Text style={hallMapStyles.legendText}>Выбран</Text>
           </View>
         </View>
-
-        {/* Информация о выбранном столе */}
-        {selectedTable && (
-          <View style={hallMapStyles.selectedTableInfo}>
-            <Text style={hallMapStyles.selectedTableText}>
-              Выбран стол: №{tables.find(t => t.id === selectedTable)?.number}
-            </Text>
-            <TouchableOpacity
-              style={hallMapStyles.clearSelectionButton}
-              onPress={() => setSelectedTable(null)}
-              activeOpacity={0.7}
-            >
-              <Text style={hallMapStyles.clearSelectionText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
+
+      {/* Модальное окно бронирования стола */}
+      <TableReservationModal
+        visible={modalVisible}
+        table={selectedTableData}
+        startTime={startTime}
+        endTime={endTime}
+        onClose={handleCloseModal}
+        onAddToOrder={handleAddToOrder}
+      />
     </View>
   );
 }
