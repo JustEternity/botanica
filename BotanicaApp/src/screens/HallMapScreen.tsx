@@ -226,46 +226,9 @@ export default function HallMapScreen() {
         <Text style={hallMapStyles.headerTitle}>🗺️ Схема зала</Text>
       </View>
 
-      {/* Контейнер карты */}
+      {/* Основной контент - теперь карта занимает все пространство */}
       <View style={hallMapStyles.content}>
-        <Text style={hallMapStyles.sectionTitle}>Выберите стол</Text>
-
-        {/* Элементы управления */}
-        <View style={hallMapStyles.controls}>
-          <View style={hallMapStyles.zoomControls}>
-            <TouchableOpacity
-              style={hallMapStyles.zoomButton}
-              onPress={handleZoomIn}
-              activeOpacity={0.7}
-            >
-              <Text style={hallMapStyles.zoomButtonText}>+</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={hallMapStyles.zoomButton}
-              onPress={handleZoomOut}
-              activeOpacity={0.7}
-            >
-              <Text style={hallMapStyles.zoomButtonText}>-</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={hallMapStyles.resetButton}
-            onPress={handleResetMap}
-            activeOpacity={0.7}
-          >
-            <Text style={hallMapStyles.resetButtonText}>⟲ Сброс</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Информация о масштабе */}
-        <View style={hallMapStyles.scaleInfo}>
-          <Text style={hallMapStyles.scaleText}>Масштаб: {Math.round(transform.scale * 100)}%</Text>
-          <Text style={hallMapStyles.helpText}>• Один палец для перемещения</Text>
-          <Text style={hallMapStyles.helpText}>• Два пальца для масштабирования</Text>
-        </View>
-
-        {/* Большая карта зала с возможностью перемещения и масштабирования */}
+        {/* Контейнер карты с жестами */}
         <View
           style={[
             hallMapStyles.mapContainer,
@@ -288,9 +251,42 @@ export default function HallMapScreen() {
             {/* Отрисовка столов */}
             {tables.map(renderTable)}
           </View>
+
+          {/* Элементы управления поверх карты */}
+          <View style={hallMapStyles.controlsOverlay}>
+            <View style={hallMapStyles.zoomControlsOverlay}>
+              <TouchableOpacity
+                style={hallMapStyles.zoomButtonOverlay}
+                onPress={handleZoomIn}
+                activeOpacity={0.7}
+              >
+                <Text style={hallMapStyles.zoomButtonText}>+</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={hallMapStyles.zoomButtonOverlay}
+                onPress={handleZoomOut}
+                activeOpacity={0.7}
+              >
+                <Text style={hallMapStyles.zoomButtonText}>-</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={hallMapStyles.resetButtonOverlay}
+              onPress={handleResetMap}
+              activeOpacity={0.7}
+            >
+              <Text style={hallMapStyles.resetButtonText}>⟲ Сброс</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Информация о масштабе поверх карты */}
+          <View style={hallMapStyles.scaleInfoOverlay}>
+            <Text style={hallMapStyles.scaleText}>Масштаб: {Math.round(transform.scale * 100)}%</Text>
+          </View>
         </View>
 
-        {/* Легенда */}
+        {/* Легенда под картой */}
         <View style={hallMapStyles.legend}>
           <View style={hallMapStyles.legendItem}>
             <View style={[hallMapStyles.legendColor, hallMapStyles.available]} />

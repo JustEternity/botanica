@@ -20,7 +20,6 @@ export const hallMapStyles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 16,
   },
   sectionTitle: {
     fontSize: 24,
@@ -29,12 +28,9 @@ export const hallMapStyles = StyleSheet.create({
     color: '#2E7D32',
     textAlign: 'center',
   },
+  // Убраны старые элементы управления
   controls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-    paddingHorizontal: 10,
+    display: 'none',
   },
   zoomControls: {
     flexDirection: 'row',
@@ -77,11 +73,7 @@ export const hallMapStyles = StyleSheet.create({
     fontWeight: 'bold',
   },
   scaleInfo: {
-    alignItems: 'center',
-    marginBottom: 15,
-    padding: 10,
-    backgroundColor: 'white',
-    borderRadius: 8,
+    display: 'none',
   },
   scaleText: {
     fontSize: 16,
@@ -97,12 +89,8 @@ export const hallMapStyles = StyleSheet.create({
   mapContainer: {
     flex: 1,
     backgroundColor: '#E8F5E8',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#C8E6C9',
     overflow: 'hidden',
-    marginBottom: 20,
-    minHeight: 400,
+    position: 'relative', // Для позиционирования элементов поверх карты
   },
   simpleMap: {
     width: 600,
@@ -144,6 +132,7 @@ export const hallMapStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginBottom: 20,
+    marginTop: 15,
     padding: 10,
     backgroundColor: 'white',
     borderRadius: 8,
@@ -183,6 +172,8 @@ export const hallMapStyles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
+    marginHorizontal: 16,
+    marginBottom: 16,
   },
   selectedTableText: {
     color: 'white',
@@ -213,5 +204,59 @@ export const hallMapStyles = StyleSheet.create({
   },
   tableNumberAndroid: {
     fontSize: 18,
+  },
+  // Новые стили для элементов поверх карты
+  controlsOverlay: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    alignItems: 'flex-end',
+    zIndex: 10,
+  },
+  zoomControlsOverlay: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  zoomButtonOverlay: {
+    width: 50,
+    height: 50,
+    backgroundColor: '#2E7D32',
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  resetButtonOverlay: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: '#757575',
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  scaleInfoOverlay: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
   },
 });
