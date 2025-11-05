@@ -68,13 +68,20 @@ export const menuStyles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2E7D32',
   },
-  menuItem: {
+  menuItemContainer: {
+    position: 'relative',
+    marginBottom: 20,
     backgroundColor: '#f9f9f9',
-    padding: 12,
     borderRadius: 8,
-    marginBottom: 12,
+    overflow: 'visible',
+  },
+  menuItem: {
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  itemImageContainer: {
+    position: 'relative',
   },
   
   itemImage: {
@@ -83,21 +90,13 @@ export const menuStyles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 12,
   },
-  itemImageContainer: {
-    position: 'relative',
-  },
-  imageLoading: {
-    position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
   itemContent: {
     flex: 1,
+    // Убрали paddingRight, теперь контент занимает всю ширину
   },
   itemHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-between', // Это обеспечит выравнивание по краям
     alignItems: 'flex-start',
     marginBottom: 8,
   },
@@ -106,12 +105,14 @@ export const menuStyles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     flex: 1,
+    marginRight: 10,
   },
   itemPrice: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#2E7D32',
-    marginLeft: 10,
+    // Убедимся, что цена не сжимается
+    flexShrink: 0,
   },
   itemDescription: {
     fontSize: 14,
