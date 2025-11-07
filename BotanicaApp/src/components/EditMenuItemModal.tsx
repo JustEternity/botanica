@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Modal,
     View,
@@ -16,7 +16,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { MenuItem, MenuCategory } from '../types';
 import { ApiService } from '../services/api';
-import { getOptimizedImageUrl } from '../utils/imageUtils'; // Добавьте этот импорт
+import { getOptimizedImageUrl } from '../utils/imageUtils';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -57,23 +57,27 @@ export default function EditMenuItemModal({
     const [imageError, setImageError] = useState(false);
     const [imageLoading, setImageLoading] = useState(true);
 
+    // Refs для скролла категорий
+    const categoriesScrollRef = useRef<ScrollView>(null);
+    const categoryPositions = useRef<{[key: string]: number}>({});
+    const categoryWidths = useRef<{[key: string]: number}>({});
+
     // Сбрасываем форму при открытии/закрытии модального окна
     useEffect(() => {
         if (visible) {
             if (item) {
-                // Редактирование существующего товара
+                const initialCategoryId = item.category_id.toString() || (categories[0]?.id || '');
                 setFormData({
                     name: item.name,
                     price: item.price.toString(),
                     description: item.description,
-                    category_id: item.category_id || (categories[0]?.id || ''),
+                    category_id: initialCategoryId,
                 });
                 setSelectedImage(item.image);
                 setIsNewImage(false);
                 setImageError(false);
                 setImageLoading(true);
             } else {
-                // Добавление нового товара
                 setFormData({
                     name: '',
                     price: '',
@@ -88,15 +92,27 @@ export default function EditMenuItemModal({
         }
     }, [visible, item, categories]);
 
-    // Автоматически выбираем первую категорию при загрузке категорий
+    // Автоматический скролл к выбранной категории
     useEffect(() => {
-        if (categories.length > 0 && !formData.category_id) {
-            setFormData(prev => ({
-                ...prev,
-                category_id: categories[0].id
-            }));
+        if (visible && formData.category_id && categoriesScrollRef.current) {
+            // Ждем немного, чтобы layout успел обновиться
+            const timer = setTimeout(() => {
+                const selectedPosition = categoryPositions.current[formData.category_id];
+                const selectedWidth = categoryWidths.current[formData.category_id];
+                
+                if (selectedPosition !== undefined && selectedWidth !== undefined) {
+                    // Вычисляем позицию для центрирования
+                    const scrollPosition = Math.max(0, selectedPosition - (SCREEN_WIDTH - selectedWidth) / 2);
+                    categoriesScrollRef.current?.scrollTo({
+                        x: scrollPosition,
+                        animated: true
+                    });
+                }
+            }, 150);
+            
+            return () => clearTimeout(timer);
         }
-    }, [categories]);
+    }, [visible, formData.category_id, categories]);
 
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({
@@ -107,12 +123,11 @@ export default function EditMenuItemModal({
 
     const handleImagePick = async () => {
         try {
-            // Запускаем системную галерею для выбора изображения
             let result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ['images'],
                 allowsEditing: true,
                 aspect: [4, 3],
-                quality: 1.0, // Увеличиваем качество до максимума
+                quality: 1.0,
             });
 
             console.log('ImagePicker Result:', result);
@@ -135,13 +150,11 @@ export default function EditMenuItemModal({
     // Функция для получения оптимизированного URL изображения
     const getDisplayImageUrl = (imageUri: string | null) => {
         if (!imageUri) return null;
-        
-        // Если это локальное изображение (еще не загруженное в Cloudinary)
+
         if (imageUri.startsWith('file://') || imageUri.startsWith('content://')) {
             return imageUri;
         }
-        
-        // Если это Cloudinary URL, используем оптимизированную версию
+
         return getOptimizedImageUrl(imageUri);
     };
 
@@ -160,6 +173,12 @@ export default function EditMenuItemModal({
         setImageLoading(true);
     };
 
+    // Сохранение позиции и ширины категории
+    const saveCategoryLayout = (categoryId: string, x: number, width: number) => {
+        categoryPositions.current[categoryId] = x;
+        categoryWidths.current[categoryId] = width;
+    };
+
     // 1. Запрос подписи у сервера
     const getCloudinarySignature = async (existingPublicId?: string): Promise<CloudinarySignature> => {
         try {
@@ -171,7 +190,7 @@ export default function EditMenuItemModal({
             if (existingPublicId) {
                 payload.public_id = existingPublicId;
             }
-            const response = await fetch('http://109.172.37.118:3001/api/cloudinary-signature', {
+            const response = await fetch('http://45.153.189.245:3001/api/cloudinary-signature', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -193,59 +212,44 @@ export default function EditMenuItemModal({
     const uploadImageToCloudinaryDirectly = async (imageUri: string): Promise<{ public_id: string, secure_url: string }> => {
         try {
             setIsUploading(true);
-            
-            // Определяем targetPublicId: при редактировании используем существующий, иначе генерируем новый
+
             let targetPublicId: string | undefined;
             if (item && item.cloudinary_public_id) {
-                // Редактирование существующего товара - используем тот же public_id для перезаписи
                 targetPublicId = item.cloudinary_public_id;
                 console.log('Using existing public_id for overwrite:', targetPublicId);
             } else {
-                // Новый товар - генерируем уникальный public_id
-                targetPublicId = `${Math.random().toString(36).substring(2, 9)}`;
+                targetPublicId = `botanica_item_${Math.random().toString(36).substring(2, 9)}`;
                 console.log('Generated new public_id:', targetPublicId);
             }
-            
-            // Получаем подпись с указанием public_id для перезаписи
+
             const signatureData = await getCloudinarySignature(targetPublicId);
-            
-            // Создаем FormData для отправки в Cloudinary
+
             const formData = new FormData();
-            
-            // Добавляем файл изображения с высоким качеством
             const filename = imageUri.split('/').pop() || 'upload.jpg';
             const fileType = filename.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
-            
+
             formData.append('file', {
                 uri: imageUri,
                 type: fileType,
                 name: filename,
             } as any);
-            
-            // Добавляем все параметры подписи
+
             formData.append('timestamp', signatureData.timestamp.toString());
             formData.append('signature', signatureData.signature);
             formData.append('api_key', signatureData.api_key);
-            
-            // Ключевые параметры для перезаписи
             formData.append('overwrite', signatureData.overwrite.toString());
             formData.append('invalidate', signatureData.invalidate.toString());
-            
-            // Добавляем параметры для улучшения качества
-            formData.append('quality', 'auto:good'); // Автоматическое хорошее качество
-            formData.append('fetch_format', 'auto'); // Автоматический выбор формата
-            
-            // Если у нас есть конкретный public_id, добавляем его
+            formData.append('quality', 'auto:good');
+            formData.append('fetch_format', 'auto');
             formData.append('public_id', targetPublicId);
-            
+
             console.log('Uploading to Cloudinary with params:', {
                 cloud_name: signatureData.cloud_name,
                 overwrite: signatureData.overwrite,
                 public_id: targetPublicId,
                 quality: 'auto:good'
             });
-            
-            // Отправляем запрос напрямую в Cloudinary
+
             const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${signatureData.cloud_name}/image/upload`;
             const response = await fetch(cloudinaryUrl, {
                 method: 'POST',
@@ -254,13 +258,13 @@ export default function EditMenuItemModal({
                     'Content-Type': 'multipart/form-data',
                 },
             });
-            
+
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('Cloudinary upload error:', errorText);
                 throw new Error(`Cloudinary upload failed: ${response.status}`);
             }
-            
+
             const result = await response.json();
             console.log('Cloudinary upload success:', {
                 public_id: result.public_id,
@@ -268,7 +272,7 @@ export default function EditMenuItemModal({
                 bytes: result.bytes,
                 format: result.format
             });
-            
+
             return {
                 public_id: result.public_id,
                 secure_url: result.secure_url
@@ -282,7 +286,6 @@ export default function EditMenuItemModal({
     };
 
     const handleSave = async () => {
-        // Валидация
         if (!formData.name.trim()) {
             Alert.alert('Ошибка', 'Введите название товара');
             return;
@@ -313,16 +316,14 @@ export default function EditMenuItemModal({
         try {
             let cloudinaryData = null;
 
-            // Загружаем изображение только если оно новое ИЛИ если это существующий товар (для перезаписи)
-            if ((isNewImage || item) && selectedImage) {
-                console.log('Uploading image for:', item ? 'existing item' : 'new item');
+            if (isNewImage && selectedImage) {
+                console.log('Uploading new image for:', item ? 'existing item' : 'new item');
                 cloudinaryData = await uploadImageToCloudinaryDirectly(selectedImage);
                 if (!cloudinaryData) {
                     throw new Error('Не удалось загрузить изображение');
                 }
             }
 
-            // Формируем данные товара
             const itemData: any = {
                 id: item?.id || Date.now().toString(),
                 name: formData.name.trim(),
@@ -332,29 +333,27 @@ export default function EditMenuItemModal({
                 is_available: true,
             };
 
-            // Обновляем Cloudinary данные
             if (cloudinaryData) {
                 itemData.cloudinary_public_id = cloudinaryData.public_id;
                 itemData.cloudinary_url = cloudinaryData.secure_url;
-                itemData.image = cloudinaryData.secure_url; // Для обратной совместимости
+                itemData.image = cloudinaryData.secure_url;
             } else if (item) {
-                // При редактировании без смены изображения используем старые данные
                 itemData.cloudinary_public_id = item.cloudinary_public_id;
                 itemData.cloudinary_url = item.image;
                 itemData.image = item.image;
+            } else {
+                itemData.image = selectedImage;
             }
 
-            // Сохраняем товар на нашем сервере
             if (item) {
                 await ApiService.updateMenuItem(item.id, itemData);
             } else {
                 await ApiService.addMenuItem(itemData);
             }
 
-            // Передаем полные данные для обновления UI
             const completeItemData: MenuItem = {
                 ...itemData,
-                image: cloudinaryData ? cloudinaryData.secure_url : item?.image || '',
+                image: cloudinaryData ? cloudinaryData.secure_url : (item?.image || selectedImage),
                 is_available: true,
             };
 
@@ -386,7 +385,6 @@ export default function EditMenuItemModal({
         >
             <View style={styles.modalContainer}>
                 <View style={styles.modalContent}>
-                    {/* Шапка модального окна */}
                     <View style={styles.header}>
                         <Text style={styles.title}>
                             {item ? 'Редактирование товара' : 'Добавление товара'}
@@ -404,7 +402,6 @@ export default function EditMenuItemModal({
                         style={styles.content}
                         showsVerticalScrollIndicator={false}
                     >
-                        {/* Поле для изображения */}
                         <TouchableOpacity
                             style={styles.imageContainer}
                             onPress={handleImagePick}
@@ -417,7 +414,7 @@ export default function EditMenuItemModal({
                                             <ActivityIndicator size="large" color="#2E7D32" />
                                         </View>
                                     )}
-                                    
+
                                     <Image
                                         source={{ uri: displayImage }}
                                         style={[
@@ -428,9 +425,9 @@ export default function EditMenuItemModal({
                                         onLoad={handleImageLoad}
                                         onError={handleImageError}
                                     />
-                                    
+
                                     {imageError && (
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             style={[styles.image, styles.imageError]}
                                             onPress={handleRetryLoad}
                                             activeOpacity={0.7}
@@ -440,7 +437,7 @@ export default function EditMenuItemModal({
                                             <Text style={styles.retryHint}>Нажмите для повторной загрузки</Text>
                                         </TouchableOpacity>
                                     )}
-                                    
+
                                     {(isUploading) && (
                                         <View style={styles.uploadOverlay}>
                                             <ActivityIndicator size="large" color="#2E7D32" />
@@ -465,7 +462,6 @@ export default function EditMenuItemModal({
                             )}
                         </TouchableOpacity>
 
-                        {/* Остальной код без изменений */}
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Название товара</Text>
                             <TextInput
@@ -481,30 +477,37 @@ export default function EditMenuItemModal({
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Категория</Text>
                             <ScrollView
+                                ref={categoriesScrollRef}
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
                                 style={styles.categoriesScroll}
+                                contentContainerStyle={styles.categoriesContainer}
                             >
-                                <View style={styles.categoriesContainer}>
-                                    {categories.map((category) => (
+                                {categories.map((category) => {
+                                    const isSelected = formData.category_id === category.id;
+                                    return (
                                         <TouchableOpacity
                                             key={category.id}
                                             style={[
                                                 styles.categoryButton,
-                                                formData.category_id === category.id && styles.categoryButtonActive
+                                                isSelected && styles.categoryButtonActive
                                             ]}
                                             onPress={() => handleInputChange('category_id', category.id)}
                                             disabled={isLoading || isUploading}
+                                            onLayout={(event) => {
+                                                const { x, width } = event.nativeEvent.layout;
+                                                saveCategoryLayout(category.id, x, width);
+                                            }}
                                         >
                                             <Text style={[
                                                 styles.categoryButtonText,
-                                                formData.category_id === category.id && styles.categoryButtonTextActive
+                                                isSelected && styles.categoryButtonTextActive
                                             ]}>
                                                 {category.title}
                                             </Text>
                                         </TouchableOpacity>
-                                    ))}
-                                </View>
+                                    );
+                                })}
                             </ScrollView>
                         </View>
 
@@ -728,10 +731,12 @@ const styles = StyleSheet.create({
     },
     categoriesScroll: {
         marginHorizontal: -5,
+        maxHeight: 50,
     },
     categoriesContainer: {
         flexDirection: 'row',
         paddingHorizontal: 5,
+        alignItems: 'center',
     },
     categoryButton: {
         paddingHorizontal: 16,

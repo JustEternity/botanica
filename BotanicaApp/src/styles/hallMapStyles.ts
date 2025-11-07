@@ -39,7 +39,13 @@ export const hallMapStyles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
-
+  timeWarning: {
+    fontSize: 12,
+    color: '#FF6B35',
+    textAlign: 'center',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
   timeRestrictionText: {
     fontSize: 12,
     color: '#666',
@@ -113,6 +119,62 @@ export const hallMapStyles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     marginRight: 8,
+  },
+  // Добавьте в ваш файл стилей:
+  // Добавьте эти стили:
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f8f8',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  updatingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f8ff',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  updatingText: {
+    fontSize: 14,
+    color: '#007AFF',
+    marginLeft: 8,
+  },
+  tableUpdating: {
+    opacity: 0.6,
+  },
+  tableNumberUpdating: {
+    opacity: 0.7,
+  },
+  updatingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  timePickerTextDisabled: {
+    opacity: 0.5,
+  },
+  controlDisabled: {
+    opacity: 0.5,
+  },
+  updating: {
+    backgroundColor: '#999',
   },
   available: {
     backgroundColor: '#4CAF50',
@@ -208,15 +270,15 @@ export const hallMapStyles = StyleSheet.create({
     marginBottom: 5,
   },
   timeSelectionPanel: {
-  backgroundColor: 'white',
-  padding: 16,
-  borderRadius: 12,
-  marginBottom: 16,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-  elevation: 3,
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   timeSelectionTitle: {
     fontSize: 16,

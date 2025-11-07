@@ -1,5 +1,5 @@
 // screens/MenuScreen.tsx
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,7 @@ import { MenuSection, MenuItem, MenuCategory, ContextMenuAction } from '../types
 import MenuModal from '../components/MenuModal';
 import { menuStyles } from '../styles/menuStyles';
 import { ApiService } from '../services/api';
-import { getOptimizedImageUrl, preloadImage } from '../utils/imageUtils';
+import { getOptimizedImageUrl } from '../utils/imageUtils';
 import { useAuth } from '../contexts/AuthContext';
 import ContextMenu from '../components/ContextMenu';
 import AndroidContextMenu from '../components/AndroidContextMenu';
@@ -39,9 +39,9 @@ const LOADING_PHRASES = [
   "Готовим вкусы..."
 ];
 
-const CLOUDINARY_PLACEHOLDER = 'https://res.cloudinary.com/dczeplme4/image/upload/w_300,h_200,c_fill,q_auto,f_auto/botanica_placeholder';
+// Убрали CATEGORIES_PER_PAGE - теперь загружаем все категории сразу
 
-// Компонент элемента меню (без изменений)
+// Компонент элемента меню
 const MenuItemComponent: React.FC<{
   item: MenuItem;
   onItemPress: (item: MenuItem) => void;
@@ -54,59 +54,17 @@ const MenuItemComponent: React.FC<{
   onLongPress 
 }) => {
   const { user } = useAuth();
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [imageLoading, setImageLoading] = useState(true);
-  const [retryCount, setRetryCount] = useState(0);
-  const [currentImageUri, setCurrentImageUri] = useState<string>('');
-
-  const MAX_RETRIES = 2;
-  const RETRY_DELAY = 3000;
 
   const optimizedImageUrl = getOptimizedImageUrl(item.image, 160, 160);
 
-  const loadImageWithRetry = useCallback(async (url: string, retryAttempt = 0) => {
-    try {
-      setImageLoading(true);
-      setImageError(false);
-      
-      await preloadImage(url);
-      setCurrentImageUri(url);
-      setImageLoading(false);
-    } catch (error) {
-      console.log(`Ошибка загрузки изображения для ${item.name} (попытка ${retryAttempt + 1}):`, error);
-      
-      if (retryAttempt < MAX_RETRIES) {
-        setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-          loadImageWithRetry(url, retryAttempt + 1);
-        }, RETRY_DELAY);
-      } else {
-        setImageError(true);
-        setImageLoading(false);
-      }
-    }
-  }, [item.name]);
-
-  useEffect(() => {
-    if (item.image) {
-      loadImageWithRetry(optimizedImageUrl);
-    }
-  }, [item.image, optimizedImageUrl, loadImageWithRetry]);
-
-  useEffect(() => {
-    if (retryCount > 0 && !imageLoading && !imageError) {
-      loadImageWithRetry(optimizedImageUrl);
-    }
-  }, [retryCount, imageLoading, imageError, loadImageWithRetry, optimizedImageUrl]);
+  const handleImageLoad = useCallback(() => {
+    setImageLoaded(true);
+  }, []);
 
   const handleImageError = useCallback(() => {
     setImageError(true);
-    setImageLoading(false);
-  }, []);
-
-  const handleImageLoad = useCallback(() => {
-    setImageLoading(false);
-    setImageError(false);
   }, []);
 
   const handlePlusPress = useCallback((e: any) => {
@@ -122,12 +80,6 @@ const MenuItemComponent: React.FC<{
     onLongPress(item);
   }, [item, onLongPress]);
 
-  const handleRetryLoad = useCallback(() => {
-    setRetryCount(prev => prev + 1);
-    setImageError(false);
-    setImageLoading(true);
-  }, []);
-
   return (
     <View style={menuStyles.menuItemContainer}>
       <TouchableOpacity 
@@ -137,7 +89,6 @@ const MenuItemComponent: React.FC<{
         activeOpacity={0.7}
         delayLongPress={500}
       >
-        {/* Индикатор скрытого товара для администратора */}
         {user?.role === 'admin' && item.is_available === false && (
           <View style={styles.hiddenIndicator}>
             <Text style={styles.hiddenIndicatorText}>Скрыто</Text>
@@ -145,33 +96,22 @@ const MenuItemComponent: React.FC<{
         )}
 
         <View style={menuStyles.itemImageContainer}>
-          {imageLoading && (
-            <View style={[menuStyles.itemImage, styles.imageLoading]}>
-              <ActivityIndicator size="small" color="#2E7D32" />
-              {retryCount > 0 && (
-                <Text style={styles.retryText}>
-                  Повторная загрузка... ({retryCount}/{MAX_RETRIES})
-                </Text>
-              )}
-            </View>
-          )}
+          {/* Всегда показываем плейсхолдер */}
+          <Image
+            source={require('../../assets/botanicaplaceholder.jpg')}
+            style={menuStyles.itemImage}
+            resizeMode="cover"
+          />
           
-          {!imageLoading && imageError && (
-            <TouchableOpacity 
-              style={[menuStyles.itemImage, styles.imageError]}
-              onPress={handleRetryLoad}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.errorIcon}>🖼️</Text>
-              <Text style={styles.errorText}>Ошибка загрузки</Text>
-              <Text style={styles.retryHint}>Нажмите для повторной загрузки</Text>
-            </TouchableOpacity>
-          )}
-          
-          {!imageLoading && !imageError && (
+          {/* Реальное изображение поверх плейсхолдера */}
+          {!imageError && (
             <Image
-              source={{ uri: currentImageUri || optimizedImageUrl }}
-              style={menuStyles.itemImage}
+              source={{ uri: optimizedImageUrl }}
+              style={[
+                menuStyles.itemImage,
+                styles.realImage,
+                { opacity: imageLoaded ? 1 : 0 }
+              ]}
               resizeMode="cover"
               onLoad={handleImageLoad}
               onError={handleImageError}
@@ -197,9 +137,12 @@ const MenuItemComponent: React.FC<{
       </TouchableOpacity>
     </View>
   );
+}, (prevProps, nextProps) => {
+  return prevProps.item.id === nextProps.item.id &&
+         prevProps.item.is_available === nextProps.item.is_available;
 });
 
-// Основной компонент экрана меню
+// Основной компонент экрана меню - теперь загружаем все категории сразу
 export default function MenuScreen() {
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -210,20 +153,16 @@ export default function MenuScreen() {
   const [loadingPhrase, setLoadingPhrase] = useState(LOADING_PHRASES[0]);
   const [isDataReady, setIsDataReady] = useState(false);
   
-  // Состояния для основного модального окна товара
+  // Убрали состояния для постраничной загрузки
+
+  // Остальные состояния
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [initialQuantity, setInitialQuantity] = useState(0);
-
-  // Состояния для контекстного меню
   const [contextMenuVisible, setContextMenuVisible] = useState(false);
   const [selectedContextItem, setSelectedContextItem] = useState<MenuItem | null>(null);
-
-  // Состояния для модального окна редактирования/добавления
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-
-  // Состояния для pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);
   const [showAddButton, setShowAddButton] = useState(false);
 
@@ -234,47 +173,12 @@ export default function MenuScreen() {
   const loadingPhraseRef = useRef<NodeJS.Timeout | null>(null);
   const addButtonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Сбрасываем контекстное меню при изменении пользователя
-  useEffect(() => {
-    if (!user) {
-      setSelectedContextItem(null);
-      setContextMenuVisible(false);
-      setShowAddButton(false);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (loading) {
-      let currentIndex = 0;
-      setLoadingPhrase(LOADING_PHRASES[0]);
-      
-      loadingPhraseRef.current = setInterval(() => {
-        currentIndex = (currentIndex + 1) % LOADING_PHRASES.length;
-        setLoadingPhrase(LOADING_PHRASES[currentIndex]);
-      }, 2000);
-    } else {
-      if (loadingPhraseRef.current) {
-        clearInterval(loadingPhraseRef.current);
-      }
-    }
-
-    return () => {
-      if (loadingPhraseRef.current) {
-        clearInterval(loadingPhraseRef.current);
-      }
-      if (addButtonTimeoutRef.current) {
-        clearTimeout(addButtonTimeoutRef.current);
-      }
-    };
-  }, [loading]);
-
   const loadMenuData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       console.log('🔄 Начинаем загрузку меню...');
       
-      // Для администраторов загружаем все товары, включая скрытые
       const includeHidden = user?.role === 'admin';
       const data = await ApiService.getMenu(includeHidden);
       setMenuData(data);
@@ -282,10 +186,8 @@ export default function MenuScreen() {
       if (data.length > 0) {
         setSelectedCategory(data[0].id);
         
-        // Даем время на рендеринг перед установкой позиций
-        setTimeout(() => {
-          setIsDataReady(true);
-        }, 500);
+        // Убираем задержку для isDataReady чтобы быстрее показать контент
+        setIsDataReady(true);
       }
       
       console.log('✅ Меню успешно загружено в состояние');
@@ -302,7 +204,61 @@ export default function MenuScreen() {
     loadMenuData();
   }, [loadMenuData]);
 
-  // Функция для pull-to-refresh
+  // Упрощенный обработчик скролла - убрали постраничную загрузку
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isScrolling || !menuData.length || !isDataReady) return;
+
+    const scrollY = event.nativeEvent.contentOffset.y;
+    
+    // Логика определения активной категории
+    let newSelectedCategory = selectedCategory;
+    let foundInViewport = false;
+
+    Object.entries(categoryPositions.current).forEach(([sectionId, sectionY]) => {
+      if (scrollY >= sectionY - 100 && scrollY <= sectionY + 100) {
+        newSelectedCategory = sectionId;
+        foundInViewport = true;
+      }
+    });
+
+    if (!foundInViewport) {
+      let closestSection = menuData[0]?.id || '';
+      let minDistance = Infinity;
+
+      Object.entries(categoryPositions.current).forEach(([sectionId, sectionY]) => {
+        if (sectionY <= scrollY + 50) {
+          const distance = scrollY - sectionY;
+          if (distance >= 0 && distance < minDistance) {
+            minDistance = distance;
+            closestSection = sectionId;
+          }
+        }
+      });
+
+      if (closestSection) {
+        newSelectedCategory = closestSection;
+      }
+    }
+
+    if (newSelectedCategory && newSelectedCategory !== selectedCategory) {
+      setSelectedCategory(newSelectedCategory);
+
+      const categoryDataIndex = menuData.findIndex(section => section.id === newSelectedCategory);
+      if (categoriesRef.current && categoryDataIndex !== -1) {
+        categoriesRef.current.scrollToIndex({
+          index: categoryDataIndex,
+          animated: true,
+          viewPosition: 0.5
+        });
+      }
+    }
+
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+  }, [isScrolling, selectedCategory, menuData, isDataReady]);
+
+  // Остальные функции без изменений
   const onRefresh = useCallback(() => {
     if (user?.role !== 'admin') {
       setRefreshing(false);
@@ -310,20 +266,16 @@ export default function MenuScreen() {
     }
 
     setRefreshing(true);
-
-    // Имитируем задержку в 1.5 секунды
     addButtonTimeoutRef.current = setTimeout(() => {
       setShowAddButton(true);
       setRefreshing(false);
       
-      // Автоматически скрываем кнопку через 5 секунд
       setTimeout(() => {
         setShowAddButton(false);
       }, 5000);
     }, 1500);
   }, [user]);
 
-  // Функция для открытия модального окна добавления
   const openAddModal = () => {
     setEditingItem(null);
     setEditModalVisible(true);
@@ -353,23 +305,18 @@ export default function MenuScreen() {
     setModalVisible(false);
   }, []);
 
-  // Функция для обработки долгого нажатия
   const handleLongPress = useCallback((item: MenuItem) => {
     if (user?.role === 'admin') {
       setSelectedContextItem({...item});
       
       if (Platform.OS === 'ios') {
-        // Для iOS ContextMenu сам покажет ActionSheet
       } else {
-        // Для Android показываем кастомное модальное окно
         setContextMenuVisible(true);
       }
     }
   }, [user]);
 
-  // Функция обработки действий контекстного меню
   const handleContextMenuAction = useCallback(async (action: ContextMenuAction, item: MenuItem) => {
-    // Сбрасываем выбранный элемент сразу после начала действия
     if (Platform.OS === 'ios') {
       setSelectedContextItem(null);
     }
@@ -402,27 +349,20 @@ export default function MenuScreen() {
         break;
 
       case 'cancel':
-        // Просто закрываем меню (для iOS)
         break;
     }
 
-    // Для Android закрываем модальное окно после любого действия
     if (Platform.OS === 'android') {
       setContextMenuVisible(false);
       setSelectedContextItem(null);
     }
   }, [loadMenuData]);
 
-  // Обработчик сохранения товара
   const handleSaveItem = useCallback(async (itemData: MenuItem) => {
     try {
-      // Здесь будет вызов API для сохранения товара
-      // Пока просто обновляем локальное состояние
       if (editingItem) {
-        // Редактирование существующего товара
         Alert.alert('Успех', 'Товар обновлен (в демо-режиме)');
       } else {
-        // Добавление нового товара
         Alert.alert('Успех', 'Товар добавлен (в демо-режиме)');
       }
       loadMenuData();
@@ -431,31 +371,26 @@ export default function MenuScreen() {
     }
   }, [editingItem, loadMenuData]);
 
-  // Функция для закрытия Android контекстного меню
   const handleCloseAndroidMenu = useCallback(() => {
     setContextMenuVisible(false);
     setSelectedContextItem(null);
   }, []);
 
-  // Функция для обработки отмены в iOS ActionSheet
   const handleIOSActionSheetCancel = useCallback(() => {
     setSelectedContextItem(null);
   }, []);
 
-  // Функция для закрытия модального окна редактирования
   const handleCloseEditModal = useCallback(() => {
     setEditModalVisible(false);
     setEditingItem(null);
   }, []);
 
-  // Получаем список категорий для формы
   const categories: MenuCategory[] = menuData.map(section => ({
     id: section.id,
     title: section.title,
     is_active: section.is_active
   }));
 
-  // Восстановленная функция скролла к категории
   const scrollToCategory = useCallback((categoryId: string) => {
     if (isScrolling || !menuData.length || !isDataReady) return;
 
@@ -486,67 +421,9 @@ export default function MenuScreen() {
     }, 500);
   }, [isScrolling, menuData, isDataReady]);
 
-  // Сохранение позиций категорий
   const saveCategoryPosition = useCallback((categoryId: string, y: number) => {
     categoryPositions.current[categoryId] = y;
   }, []);
-
-  // Обработчики скролла (восстановленные)
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (isScrolling || !menuData.length || !isDataReady) return;
-
-    const scrollY = event.nativeEvent.contentOffset.y;
-    const viewportHeight = event.nativeEvent.layoutMeasurement.height;
-    
-    let newSelectedCategory = selectedCategory;
-    let foundInViewport = false;
-
-    // Ищем категорию в viewport
-    Object.entries(categoryPositions.current).forEach(([sectionId, sectionY]) => {
-      if (scrollY >= sectionY - 100 && scrollY <= sectionY + 100) {
-        newSelectedCategory = sectionId;
-        foundInViewport = true;
-      }
-    });
-
-    // Если не нашли в viewport, ищем ближайшую сверху
-    if (!foundInViewport) {
-      let closestSection = menuData[0]?.id || '';
-      let minDistance = Infinity;
-
-      Object.entries(categoryPositions.current).forEach(([sectionId, sectionY]) => {
-        if (sectionY <= scrollY + 50) {
-          const distance = scrollY - sectionY;
-          if (distance >= 0 && distance < minDistance) {
-            minDistance = distance;
-            closestSection = sectionId;
-          }
-        }
-      });
-
-      if (closestSection && minDistance < viewportHeight) {
-        newSelectedCategory = closestSection;
-      }
-    }
-
-    if (newSelectedCategory && newSelectedCategory !== selectedCategory) {
-      setSelectedCategory(newSelectedCategory);
-
-      // Скроллим горизонтальный список категорий
-      const categoryDataIndex = menuData.findIndex(section => section.id === newSelectedCategory);
-      if (categoriesRef.current && categoryDataIndex !== -1) {
-        categoriesRef.current.scrollToIndex({
-          index: categoryDataIndex,
-          animated: true,
-          viewPosition: 0.5
-        });
-      }
-    }
-
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-  }, [isScrolling, selectedCategory, menuData, isDataReady]);
 
   const handleScrollBeginDrag = useCallback(() => {
     setIsScrolling(true);
@@ -564,20 +441,6 @@ export default function MenuScreen() {
 
   const handleMomentumScrollEnd = useCallback(() => {
     setIsScrolling(false);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-      if (loadingPhraseRef.current) {
-        clearInterval(loadingPhraseRef.current);
-      }
-      if (addButtonTimeoutRef.current) {
-        clearTimeout(addButtonTimeoutRef.current);
-      }
-    };
   }, []);
 
   const renderCategoryItem = useCallback(({ item }: { item: MenuSection }) => (
@@ -622,13 +485,45 @@ export default function MenuScreen() {
     </View>
   ), [openModalWithItem, openModalWithPlus, handleLongPress, saveCategoryPosition]);
 
-  if (loading) {
+  // Эффекты для таймеров
+  useEffect(() => {
+    if (loading) {
+      let currentIndex = 0;
+      setLoadingPhrase(LOADING_PHRASES[0]);
+      
+      loadingPhraseRef.current = setInterval(() => {
+        currentIndex = (currentIndex + 1) % LOADING_PHRASES.length;
+        setLoadingPhrase(LOADING_PHRASES[currentIndex]);
+      }, 2000);
+    } else {
+      if (loadingPhraseRef.current) {
+        clearInterval(loadingPhraseRef.current);
+      }
+    }
+
+    return () => {
+      if (loadingPhraseRef.current) {
+        clearInterval(loadingPhraseRef.current);
+      }
+      if (addButtonTimeoutRef.current) {
+        clearTimeout(addButtonTimeoutRef.current);
+      }
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [loading]);
+
+  // Показываем экран загрузки и при подготовке меню
+  if (loading || (!isDataReady && menuData.length > 0)) {
     return (
       <View style={[menuStyles.container, styles.centeredContainer]}>
         <View style={styles.loadingContent}>
           <Text style={styles.loadingEmoji}>💨</Text>
           <ActivityIndicator size="large" color="#2E7D32" />
-          <Text style={styles.loadingText}>{loadingPhrase}</Text>
+          <Text style={styles.loadingText}>
+            {loading ? loadingPhrase : "Подготавливаем меню..."}
+          </Text>
         </View>
       </View>
     );
@@ -647,15 +542,6 @@ export default function MenuScreen() {
             <Text style={styles.retryButtonText}>Попробовать снова</Text>
           </TouchableOpacity>
         </View>
-      </View>
-    );
-  }
-
-  if (!isDataReady && menuData.length > 0) {
-    return (
-      <View style={[menuStyles.container, styles.centeredContainer]}>
-        <ActivityIndicator size="large" color="#2E7D32" />
-        <Text style={styles.preparingText}>Подготавливаем меню...</Text>
       </View>
     );
   }
@@ -697,7 +583,6 @@ export default function MenuScreen() {
           ) : undefined
         }
       >
-        {/* Кнопка добавления товара (появляется после pull-to-refresh) */}
         {showAddButton && (
           <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
             <Text style={styles.addButtonIcon}>+</Text>
@@ -705,11 +590,12 @@ export default function MenuScreen() {
           </TouchableOpacity>
         )}
 
+        {/* Теперь рендерим ВСЕ категории сразу */}
         {menuData.map(renderMenuSection)}
+        
         <View style={menuStyles.bottomSpace} />
       </ScrollView>
 
-      {/* Основное модальное окно просмотра товара */}
       <MenuModal
         visible={modalVisible}
         item={selectedItem}
@@ -718,7 +604,6 @@ export default function MenuScreen() {
         onAddToOrder={handleAddToOrder}
       />
 
-      {/* Модальное окно добавления/редактирования товара */}
       <EditMenuItemModal
         visible={editModalVisible}
         categories={categories}
@@ -727,7 +612,6 @@ export default function MenuScreen() {
         onSave={handleSaveItem}
       />
 
-      {/* Контекстное меню для iOS */}
       {Platform.OS === 'ios' && (
         <ContextMenu
           item={selectedContextItem}
@@ -736,7 +620,6 @@ export default function MenuScreen() {
         />
       )}
 
-      {/* Контекстное меню для Android */}
       {Platform.OS === 'android' && (
         <AndroidContextMenu
           visible={contextMenuVisible}
@@ -794,39 +677,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
-  },
-  preparingText: {
-    marginTop: 16,
-    color: '#666',
-  },
-  imageLoading: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  imageError: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#ffebee',
-    borderWidth: 1,
-    borderColor: '#ffcdd2',
-  },
-  errorIcon: {
-    fontSize: 20,
-    marginBottom: 4,
-    color: '#d32f2f',
-  },
-  retryHint: {
-    fontSize: 10,
-    color: '#666',
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  retryText: {
-    fontSize: 10,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 8,
   },
   plusButton: {
     position: 'absolute',
@@ -893,5 +743,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  realImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 });

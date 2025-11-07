@@ -1,4 +1,4 @@
-// types/index.ts - добавьте эти типы
+// types/index.ts
 export type MenuItem = {
   id: string;
   name: string;
@@ -7,7 +7,7 @@ export type MenuItem = {
   image: string;
   is_available?: boolean;
   cloudinary_public_id?: string;
-  category_id?: string; // Добавляем для формы
+  category_id: number;
 };
 
 export type MenuCategory = {
@@ -16,14 +16,13 @@ export type MenuCategory = {
   is_active?: boolean;
 };
 
-// Добавляем тип для контекстного меню
 export type ContextMenuAction = 'delete' | 'toggle_visibility' | 'edit' | 'cancel';
 
 export type MenuSection = {
   id: string;
   title: string;
   data: MenuItem[];
-  is_active?: boolean; // Добавляем это поле
+  is_active?: boolean;
 };
 
 
@@ -39,12 +38,12 @@ export interface Table {
   maxPeople?: number;
 }
 
+
 export type MenuModalData = {
   item: MenuItem;
   initialQuantity: number;
 };
 
-// Новые типы для авторизации
 export type User = {
   id: string;
   name: string;
@@ -70,3 +69,82 @@ export type ApiResponse<T> = {
   error?: string;
   message?: string;
 };
+
+// ========== ТИПЫ ДЛЯ ЗАКАЗОВ И БРОНИРОВАНИЙ ==========
+
+export interface OrderItem {
+  id: string;
+  menu_item_id: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  name: string;
+  description: string;
+}
+
+export interface Order {
+  id: string;
+  reservation_id: string;
+  user_id: string;
+  status: 'в работе' | 'выполнен' | 'отменен' | 'не выполнен';
+  total_amount: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  
+  // Дополнительные поля из JOIN запросов
+  start_time?: string;
+  end_time?: string;
+  guests_count?: number;
+  table_id?: string;
+  table_name?: string;
+  table_description?: string;
+  table_capacity?: number;
+  customer_name?: string;
+  customer_phone?: string;
+  reservation_active?: boolean;
+  
+  items: OrderItem[];
+}
+
+export interface CreateOrderData {
+  table_id: string;
+  start_time: string;
+  end_time: string;
+  guests_count: number;
+  items: Array<{
+    menu_item_id: string;
+    quantity: number;
+  }>;
+  notes?: string;
+}
+
+export interface OrdersResponse {
+  success: boolean;
+  orders: Order[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
+
+export interface TableOrdersResponse {
+  success: boolean;
+  orders: Order[];
+  table: Table;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
+
+export interface TablesResponse {
+  success: boolean;
+  tables: Table[];
+  requested_period: {
+    start: string;
+    end: string;
+  };
+}

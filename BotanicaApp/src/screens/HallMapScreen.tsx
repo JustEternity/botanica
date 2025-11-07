@@ -12,6 +12,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Table } from '../types';
 import { hallMapStyles } from '../styles/hallMapStyles';
 import TableReservationModal from './TableReservationScreen';
+import { ApiService } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -19,6 +20,80 @@ export default function HallMapScreen() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTableData, setSelectedTableData] = useState<Table | null>(null);
+  const [tables, setTables] = useState<Table[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Функция для округления времени до ближайших 15 минут
+  const roundToNearest15Minutes = (date: Date): Date => {
+    const minutes = date.getMinutes();
+    const remainder = minutes % 15;
+    const roundedMinutes = remainder === 0 ? minutes : minutes + (15 - remainder);
+    const newDate = new Date(date);
+    newDate.setMinutes(roundedMinutes);
+    newDate.setSeconds(0, 0);
+    return newDate;
+  };
+
+  // Функция для принудительной установки минут в 00, 15, 30, 45
+  const enforce15MinuteIntervals = (date: Date): Date => {
+    const newDate = new Date(date);
+    const minutes = newDate.getMinutes();
+    const validMinutes = [0, 15, 30, 45];
+    
+    if (!validMinutes.includes(minutes)) {
+      // Округляем до ближайших допустимых минут
+      const remainder = minutes % 15;
+      const roundedMinutes = remainder < 8 ? minutes - remainder : minutes + (15 - remainder);
+      newDate.setMinutes(roundedMinutes);
+      newDate.setSeconds(0, 0);
+    }
+    
+    return newDate;
+  };
+
+  // Функция для получения ближайшего доступного времени
+  const getNearestAvailableTime = (): { startTime: Date; endTime: Date } => {
+    const now = new Date();
+    const openingTime = getOpeningTime(now);
+    
+    // Если сейчас до открытия, возвращаем первое доступное время
+    if (now < openingTime) {
+      const start = new Date(openingTime);
+      const end = new Date(start);
+      end.setHours(end.getHours() + 1);
+      return { startTime: start, endTime: end };
+    }
+
+    // Округляем текущее время до ближайших 15 минут
+    let roundedTime = roundToNearest15Minutes(now);
+    
+    // Если округленное время в прошлом, добавляем 15 минут
+    if (roundedTime <= now) {
+      roundedTime = new Date(roundedTime);
+      roundedTime.setMinutes(roundedTime.getMinutes() + 15);
+    }
+
+    // Проверяем, что время в пределах рабочего дня
+    const closingTime = getClosingTime(roundedTime);
+    if (roundedTime >= closingTime) {
+      // Если время после закрытия, возвращаем первое время следующего дня
+      const nextDay = new Date(roundedTime);
+      nextDay.setDate(nextDay.getDate() + 1);
+      const start = getOpeningTime(nextDay);
+      const end = new Date(start);
+      end.setHours(end.getHours() + 1);
+      return { startTime: start, endTime: end };
+    }
+
+    const start = roundedTime;
+    const end = new Date(start);
+    end.setHours(end.getHours() + 1);
+    
+    // Корректируем конечное время, если оно выходит за пределы рабочего дня
+    const adjustedEnd = adjustEndTimeToLimit(end);
+    return { startTime: start, endTime: adjustedEnd };
+  };
 
   // Функция для получения времени открытия (12:00 текущего дня)
   const getOpeningTime = (date: Date) => {
@@ -52,7 +127,8 @@ export default function HallMapScreen() {
   const getMinStartTime = () => {
     const now = new Date();
     const openingTime = getOpeningTime(now);
-    return now > openingTime ? new Date(now) : new Date(openingTime);
+    const minTime = now > openingTime ? new Date(now) : new Date(openingTime);
+    return enforce15MinuteIntervals(minTime);
   };
 
   // Функция для получения максимального времени окончания
@@ -62,24 +138,13 @@ export default function HallMapScreen() {
 
   // Состояния для времени бронирования
   const [startTime, setStartTime] = useState(() => {
-    const now = new Date();
-    // Устанавливаем минимальное время начала - 12:00 текущего дня
-    const minStart = new Date(now);
-    if (now.getHours() < 12) {
-      minStart.setHours(12, 0, 0, 0);
-    } else {
-      // Если уже после 12:00, начинаем с текущего времени
-      minStart.setMinutes(now.getMinutes() + 5); // +5 минут для удобства
-    }
-    return minStart;
+    const { startTime: nearestStart } = getNearestAvailableTime();
+    return enforce15MinuteIntervals(nearestStart);
   });
 
   const [endTime, setEndTime] = useState(() => {
-    const now = new Date();
-    const defaultEnd = new Date(now);
-    // Устанавливаем время окончания по умолчанию на 2 часа вперед, но не позже 04:00 следующего дня
-    defaultEnd.setHours(now.getHours() + 2, 0, 0, 0);
-    return adjustEndTimeToLimit(defaultEnd);
+    const { endTime: nearestEnd } = getNearestAvailableTime();
+    return enforce15MinuteIntervals(nearestEnd);
   });
 
   const [showStartPicker, setShowStartPicker] = useState(false);
@@ -107,6 +172,96 @@ export default function HallMapScreen() {
   useEffect(() => {
     transformRef.current = transform;
   }, [transform]);
+
+  // Функция для безопасной валидации данных столов
+  const validateTables = (tables: any[]): Table[] => {
+    return tables
+      .filter(table =>
+        table &&
+        table.id &&
+        table.position &&
+        typeof table.position.x === 'number' &&
+        typeof table.position.y === 'number'
+      )
+      .map(table => ({
+        ...table,
+        position: {
+          x: table.position?.x || 0,
+          y: table.position?.y || 0
+        },
+        isAvailable: table.isAvailable !== undefined ? table.isAvailable : true,
+        number: table.number || 0
+      }));
+  };
+
+  // Fallback данные на случай проблем с сервером
+  const getFallbackTables = (): Table[] => {
+    const fallbackTables = [
+      {
+        id: '1', number: 1, isAvailable: true, position: { x: 50, y: 50 },
+        description: 'Уютный угловой столик у окна с видом на сад. Идеален для романтического вечера.',
+        maxPeople: 4,
+      },
+      {
+        id: '2', number: 2, isAvailable: true, position: { x: 150, y: 50 },
+        description: 'Центральный столик в главном зале. Подходит для деловых встреч.',
+        maxPeople: 6,
+      },
+      {
+        id: '3', number: 3, isAvailable: false, position: { x: 250, y: 50 },
+        description: 'VIP столик с отдельной зоной для кальяна.',
+        maxPeople: 8,
+      },
+      { id: '4', number: 4, isAvailable: true, position: { x: 350, y: 50 }, description: 'Компактный столик для двоих.', maxPeople: 2 },
+      { id: '5', number: 5, isAvailable: true, position: { x: 450, y: 50 }, description: 'Просторный столик с мягкими диванами.', maxPeople: 6 },
+      { id: '6', number: 6, isAvailable: true, position: { x: 50, y: 150 }, description: 'Стандартный столик', maxPeople: 4 },
+      { id: '7', number: 7, isAvailable: false, position: { x: 150, y: 150 }, description: 'VIP зона', maxPeople: 8 },
+      { id: '8', number: 8, isAvailable: true, position: { x: 250, y: 150 }, description: 'Угловой столик', maxPeople: 4 },
+      { id: '9', number: 9, isAvailable: true, position: { x: 350, y: 150 }, description: 'Центральный столик', maxPeople: 6 },
+      { id: '10', number: 10, isAvailable: true, position: { x: 450, y: 150 }, description: 'Барная стойка', maxPeople: 2 },
+    ];
+    return fallbackTables;
+  };
+
+  // Загрузка столов с сервера
+  const loadTables = async (isBackgroundUpdate: boolean = false) => {
+    try {
+      if (!isBackgroundUpdate) {
+        setIsLoading(true);
+      } else {
+        setIsUpdating(true);
+      }
+
+      const response = await ApiService.getTables(
+        startTime.toISOString(),
+        endTime.toISOString()
+      );
+
+      if (response.success && response.tables) {
+        const validatedTables = validateTables(response.tables);
+        setTables(validatedTables);
+      } else {
+        throw new Error('Не удалось загрузить столы');
+      }
+    } catch (err) {
+      // Используем fallback данные
+      const fallbackTables = getFallbackTables();
+      setTables(fallbackTables);
+    } finally {
+      setIsLoading(false);
+      setIsUpdating(false);
+    }
+  };
+
+  // Загружаем столы при изменении времени
+  useEffect(() => {
+    loadTables(true);
+  }, [startTime, endTime]);
+
+  // Первоначальная загрузка
+  useEffect(() => {
+    loadTables(false);
+  }, []);
 
   // Создаем PanResponder для обработки жестов
   const panResponder = useRef(
@@ -183,72 +338,111 @@ export default function HallMapScreen() {
     })
   ).current;
 
-  // Данные столов с описаниями
-  const tables: Table[] = [
-    {
-      id: '1', number: 1, isAvailable: true, position: { x: 50, y: 50 },
-      description: 'Уютный угловой столик у окна с видом на сад. Идеален для романтического вечера.',
-      maxPeople: 4,
-    },
-    {
-      id: '2', number: 2, isAvailable: true, position: { x: 150, y: 50 },
-      description: 'Центральный столик в главном зале. Подходит для деловых встреч.',
-      maxPeople: 6,
-    },
-    {
-      id: '3', number: 3, isAvailable: false, position: { x: 250, y: 50 },
-      description: 'VIP столик с отдельной зоной для кальяна.',
-      maxPeople: 8,
-    },
-    { id: '4', number: 4, isAvailable: true, position: { x: 350, y: 50 }, description: 'Компактный столик для двоих.', maxPeople: 2 },
-    { id: '5', number: 5, isAvailable: true, position: { x: 450, y: 50 }, description: 'Просторный столик с мягкими диванами.', maxPeople: 6 },
-    { id: '6', number: 6, isAvailable: true, position: { x: 50, y: 150 }, description: 'Стандартный столик', maxPeople: 4 },
-    { id: '7', number: 7, isAvailable: false, position: { x: 150, y: 150 }, description: 'VIP зона', maxPeople: 8 },
-    { id: '8', number: 8, isAvailable: true, position: { x: 250, y: 150 }, description: 'Угловой столик', maxPeople: 4 },
-    { id: '9', number: 9, isAvailable: true, position: { x: 350, y: 150 }, description: 'Центральный столик', maxPeople: 6 },
-    { id: '10', number: 10, isAvailable: true, position: { x: 450, y: 150 }, description: 'Барная стойка', maxPeople: 2 },
-  ];
-
   // Обработчики для выбора времени
-  const handleStartTimeChange = (event: any, selectedDate?: Date) => {
-    setShowStartPicker(false);
-    if (selectedDate) {
-      const minStartTime = getMinStartTime();
-      let newStartTime = selectedDate < minStartTime ? new Date(minStartTime) : new Date(selectedDate);
+  // Замените обработчики времени:
 
-      // Проверяем, что время начала в рабочих пределах
-      if (!isTimeInWorkingHours(newStartTime)) {
-        newStartTime = getOpeningTime(newStartTime);
+const handleStartTimeChange = (event: any, selectedDate?: Date) => {
+  setShowStartPicker(false);
+  if (selectedDate) {
+    let newStartTime = selectedDate;
+    
+    // На Android принудительно корректируем минуты
+    if (Platform.OS === 'android') {
+      newStartTime = enforce15MinuteIntervals(selectedDate);
+      
+      // Показываем уведомление, если время было скорректировано
+      const originalMinutes = selectedDate.getMinutes();
+      if (![0, 15, 30, 45].includes(originalMinutes)) {
+        Alert.alert(
+          'Время скорректировано',
+          `Время автоматически округлено до ${formatTime(newStartTime)}`,
+          [{ text: 'OK' }]
+        );
       }
-
-      setStartTime(newStartTime);
-
-      // Автоматически обновляем время окончания
-      const newEndTime = new Date(newStartTime);
-      newEndTime.setHours(newStartTime.getHours() + 2);
-      setEndTime(adjustEndTimeToLimit(newEndTime));
     }
-  };
 
-  const handleEndTimeChange = (event: any, selectedDate?: Date) => {
-    setShowEndPicker(false);
-    if (selectedDate) {
-      const maxEndTime = getMaxEndTime(startTime);
-      let newEndTime = selectedDate;
-
-      if (newEndTime <= startTime) {
-        Alert.alert('Ошибка', 'Время окончания должно быть позже времени начала');
-        return;
-      }
-
-      if (newEndTime > maxEndTime) {
-        Alert.alert('Ограничение', 'Бронирование возможно только до 04:00 следующего дня');
-        newEndTime = new Date(maxEndTime);
-      }
-
-      setEndTime(newEndTime);
+    const minStartTime = getMinStartTime();
+    
+    // Корректируем время, если оно меньше минимального
+    if (newStartTime < minStartTime) {
+      newStartTime = new Date(minStartTime);
     }
-  };
+
+    // Проверяем, что время в рабочих пределах
+    if (!isTimeInWorkingHours(newStartTime)) {
+      newStartTime = getOpeningTime(newStartTime);
+    }
+
+    // Проверяем минимальный интервал перед установкой нового времени начала
+    const currentEndTime = new Date(endTime);
+    const minAllowedEndTime = new Date(newStartTime);
+    minAllowedEndTime.setHours(newStartTime.getHours() + 1);
+
+    if (currentEndTime < minAllowedEndTime) {
+      // Если текущее время окончания меньше минимально допустимого, показываем ошибку
+      // и не меняем время начала
+      Alert.alert(
+        'Недопустимый интервал',
+        `Время окончания должно быть как минимум на 1 час позже времени начала. Текущее время окончания: ${formatTime(endTime)}`,
+        [{ text: 'OK' }]
+      );
+      return; // Прерываем выполнение, не меняя время начала
+    }
+
+    setStartTime(newStartTime);
+  }
+};
+
+const handleEndTimeChange = (event: any, selectedDate?: Date) => {
+  setShowEndPicker(false);
+  if (selectedDate) {
+    let newEndTime = selectedDate;
+    
+    // На Android принудительно корректируем минуты
+    if (Platform.OS === 'android') {
+      newEndTime = enforce15MinuteIntervals(selectedDate);
+      
+      // Показываем уведомление, если время было скорректировано
+      const originalMinutes = selectedDate.getMinutes();
+      if (![0, 15, 30, 45].includes(originalMinutes)) {
+        Alert.alert(
+          'Время скорректировано',
+          `Время автоматически округлено до ${formatTime(newEndTime)}`,
+          [{ text: 'OK' }]
+        );
+      }
+    }
+
+    const maxEndTime = getMaxEndTime(startTime);
+
+    // Проверяем минимальный интервал в 1 час
+    const minEndTime = new Date(startTime);
+    minEndTime.setHours(startTime.getHours() + 1);
+    
+    if (newEndTime <= minEndTime) {
+      Alert.alert(
+        'Ошибка', 
+        'Минимальное время бронирования - 1 час',
+        [{ text: 'OK' }]
+      );
+      // Не устанавливаем новое время, оставляем предыдущее корректное значение
+      return;
+    }
+
+    // Проверяем максимальное время
+    if (newEndTime > maxEndTime) {
+      Alert.alert(
+        'Ограничение', 
+        'Бронирование возможно только до 04:00 следующего дня',
+        [{ text: 'OK' }]
+      );
+      // Не устанавливаем новое время, оставляем предыдущее корректное значение
+      return;
+    }
+
+    setEndTime(newEndTime);
+  }
+};
 
   // Функции для переключения (toggle) пикеров
   const openStartTimePicker = () => {
@@ -301,12 +495,16 @@ export default function HallMapScreen() {
 
   // Обработчик выбора стола
   const handleTableSelect = (table: Table) => {
-    if (!table.isAvailable) {
-      Alert.alert('Стол занят', `Стол №${table.number} в настоящее время занят`);
+    // Блокируем нажатия во время обновления
+    if (isUpdating) {
       return;
     }
 
-    // Закрываем все открытые пикеры при выборе стола
+    if (!table?.isAvailable) {
+      Alert.alert('Стол занят', `Стол №${table?.number} в настоящее время занят`);
+      return;
+    }
+
     setShowStartPicker(false);
     setShowEndPicker(false);
 
@@ -327,6 +525,8 @@ export default function HallMapScreen() {
   const handleCloseModal = () => {
     setModalVisible(false);
     setSelectedTable(null);
+    // Перезагружаем столы для обновления доступности
+    loadTables(true);
   };
 
   // Обработчик добавления в заказ
@@ -341,6 +541,8 @@ export default function HallMapScreen() {
     );
     setModalVisible(false);
     setSelectedTable(null);
+    // Перезагружаем столы для обновления доступности
+    loadTables(true);
   };
 
   // Обработчик масштабирования кнопками
@@ -367,33 +569,44 @@ export default function HallMapScreen() {
     });
   };
 
-  // Рендер отдельного стола на карте
-  const renderTable = (table: Table) => (
-    <TouchableOpacity
-      key={table.id}
-      style={[
-        hallMapStyles.table,
-        !table.isAvailable && hallMapStyles.tableOccupied,
-        selectedTable === table.id && hallMapStyles.tableSelected,
-        Platform.OS === 'android' && hallMapStyles.tableAndroid,
-        {
-          left: table.position.x,
-          top: table.position.y,
-        }
-      ]}
-      onPress={() => handleTableSelect(table)}
-      disabled={!table.isAvailable}
-      activeOpacity={0.7}
-      delayPressIn={0}
-    >
-      <Text style={[
-        hallMapStyles.tableNumber,
-        Platform.OS === 'android' && hallMapStyles.tableNumberAndroid
-      ]}>
-        {table.number}
-      </Text>
-    </TouchableOpacity>
-  );
+  // Рендер отдельного стола на карте с защитой от undefined
+  const renderTable = (table: Table) => {
+    // Защита от undefined
+    if (!table || !table.position) {
+      return null;
+    }
+
+    const position = table.position || { x: 0, y: 0 };
+    const tableNumber = table.number || '?';
+    const isAvailable = table.isAvailable !== undefined ? table.isAvailable : true;
+
+    return (
+      <TouchableOpacity
+        key={table.id}
+        style={[
+          hallMapStyles.table,
+          !isAvailable && hallMapStyles.tableOccupied,
+          selectedTable === table.id && hallMapStyles.tableSelected,
+          Platform.OS === 'android' && hallMapStyles.tableAndroid,
+          {
+            left: position.x,
+            top: position.y,
+          }
+        ]}
+        onPress={() => handleTableSelect(table)}
+        disabled={isUpdating || !isAvailable} // Блокируем на время обновления И если стол занят
+        activeOpacity={0.7}
+        delayPressIn={0}
+      >
+        <Text style={[
+          hallMapStyles.tableNumber,
+          Platform.OS === 'android' && hallMapStyles.tableNumberAndroid
+        ]}>
+          {tableNumber}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={hallMapStyles.container}>
@@ -414,6 +627,7 @@ export default function HallMapScreen() {
                   showStartPicker && hallMapStyles.timePickerButtonActive
                 ]}
                 onPress={openStartTimePicker}
+                disabled={isUpdating || isLoading}
               >
                 <Text style={[
                   hallMapStyles.timePickerTextCompact,
@@ -425,6 +639,11 @@ export default function HallMapScreen() {
                   {formatDateCompact(startTime)}
                 </Text>
               </TouchableOpacity>
+              {Platform.OS === 'android' && (
+                <Text style={hallMapStyles.timeWarning}>
+                  Время будет округлено до 15 минут
+                </Text>
+              )}
             </View>
 
             {/* Разделитель */}
@@ -441,6 +660,7 @@ export default function HallMapScreen() {
                   showEndPicker && hallMapStyles.timePickerButtonActive
                 ]}
                 onPress={openEndTimePicker}
+                disabled={isUpdating || isLoading}
               >
                 <Text style={[
                   hallMapStyles.timePickerTextCompact,
@@ -452,6 +672,11 @@ export default function HallMapScreen() {
                   {formatDateCompact(endTime)}
                 </Text>
               </TouchableOpacity>
+              {Platform.OS === 'android' && (
+                <Text style={hallMapStyles.timeWarning}>
+                  Время будет округлено до 15 минут
+                </Text>
+              )}
             </View>
           </View>
 
@@ -465,6 +690,7 @@ export default function HallMapScreen() {
                 onChange={handleStartTimeChange}
                 minimumDate={getMinStartTime()}
                 maximumDate={getMaxEndTime(startTime)}
+                minuteInterval={15} // iOS будет показывать только 00, 15, 30, 45
               />
             </View>
           )}
@@ -478,6 +704,7 @@ export default function HallMapScreen() {
                 onChange={handleEndTimeChange}
                 minimumDate={startTime}
                 maximumDate={getMaxEndTime(startTime)}
+                minuteInterval={15} // iOS будет показывать только 00, 15, 30, 45
               />
             </View>
           )}
@@ -559,14 +786,16 @@ export default function HallMapScreen() {
       </View>
 
       {/* Модальное окно бронирования стола */}
-      <TableReservationModal
-        visible={modalVisible}
-        table={selectedTableData}
-        startTime={startTime}
-        endTime={endTime}
-        onClose={handleCloseModal}
-        onAddToOrder={handleAddToOrder}
-      />
+      {selectedTableData && (
+        <TableReservationModal
+          visible={modalVisible}
+          table={selectedTableData}
+          startTime={startTime}
+          endTime={endTime}
+          onClose={handleCloseModal}
+          onAddToOrder={handleAddToOrder}
+        />
+      )}
     </View>
   );
 }
