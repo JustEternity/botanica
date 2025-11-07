@@ -319,6 +319,65 @@ export class ApiService {
   }
 
   // ========== МЕТОДЫ ДЛЯ СТОЛИКОВ И ЗАКАЗОВ ==========
+  static async completeOrder(orderId: string): Promise<{ success: boolean; order: Order }> {
+  try {
+    const token = await storage.getItem('authToken');
+    if (!token) {
+      throw new Error('Требуется авторизация');
+    }
+
+    console.log('🔄 Выполнение заказа...', orderId);
+
+    const response = await fetch(`${API_BASE_URL}/orders/${orderId}/complete`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ Заказ выполнен:', orderId);
+    return data;
+  } catch (error) {
+    console.error('❌ Ошибка выполнения заказа:', error);
+    throw error;
+  }
+}
+
+static async deleteOrder(orderId: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = await storage.getItem('authToken');
+    if (!token) {
+      throw new Error('Требуется авторизация');
+    }
+
+    console.log('🔄 Удаление заказа...', orderId);
+
+    const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ Заказ удален:', orderId);
+    return data;
+  } catch (error) {
+    console.error('❌ Ошибка удаления заказа:', error);
+    throw error;
+  }
+}
 
   static async getTables(startTime: string, endTime: string): Promise<TablesResponse> {
     try {

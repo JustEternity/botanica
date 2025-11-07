@@ -1,4 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useTable } from '../contexts/TableContext';
+import { useCart } from '../contexts/CartContext';
+import FloatingCartButton from '../components/FloatingCartButton';
+import CartModal from '../components/CartModal';
 import {
   View,
   Text,
@@ -7,6 +11,7 @@ import {
   Platform,
   PanResponder,
   Dimensions,
+  NativeTouchEvent,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Table } from '../types';
@@ -17,6 +22,9 @@ import { ApiService } from '../services/api';
 const { width } = Dimensions.get('window');
 
 export default function HallMapScreen() {
+  const { tablesLastUpdate, setIsTablesLoading } = useTable();
+  const { setTableReservation } = useCart();
+  const [cartModalVisible, setCartModalVisible] = useState(false);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTableData, setSelectedTableData] = useState<Table | null>(null);
@@ -40,7 +48,7 @@ export default function HallMapScreen() {
     const newDate = new Date(date);
     const minutes = newDate.getMinutes();
     const validMinutes = [0, 15, 30, 45];
-    
+
     if (!validMinutes.includes(minutes)) {
       // Округляем до ближайших допустимых минут
       const remainder = minutes % 15;
@@ -48,52 +56,44 @@ export default function HallMapScreen() {
       newDate.setMinutes(roundedMinutes);
       newDate.setSeconds(0, 0);
     }
-    
+
     return newDate;
   };
 
   // Функция для получения ближайшего доступного времени
-  const getNearestAvailableTime = (): { startTime: Date; endTime: Date } => {
-    const now = new Date();
-    const openingTime = getOpeningTime(now);
-    
-    // Если сейчас до открытия, возвращаем первое доступное время
-    if (now < openingTime) {
-      const start = new Date(openingTime);
-      const end = new Date(start);
-      end.setHours(end.getHours() + 1);
-      return { startTime: start, endTime: end };
-    }
+  // Функция для получения ближайшего доступного времени
+const getNearestAvailableTime = (): { startTime: Date; endTime: Date } => {
+  const now = new Date();
+  const openingTime = getOpeningTime(now);
+  const closingTime = getClosingTime(now);
 
-    // Округляем текущее время до ближайших 15 минут
-    let roundedTime = roundToNearest15Minutes(now);
-    
-    // Если округленное время в прошлом, добавляем 15 минут
-    if (roundedTime <= now) {
-      roundedTime = new Date(roundedTime);
-      roundedTime.setMinutes(roundedTime.getMinutes() + 15);
-    }
+  // Если сейчас до открытия, возвращаем первое доступное время
+  if (now < openingTime) {
+    const start = new Date(openingTime);
+    const end = getClosingTime(start); // ✅ До закрытия, а не +1 час
+    return { startTime: start, endTime: end };
+  }
 
-    // Проверяем, что время в пределах рабочего дня
-    const closingTime = getClosingTime(roundedTime);
-    if (roundedTime >= closingTime) {
-      // Если время после закрытия, возвращаем первое время следующего дня
-      const nextDay = new Date(roundedTime);
-      nextDay.setDate(nextDay.getDate() + 1);
-      const start = getOpeningTime(nextDay);
-      const end = new Date(start);
-      end.setHours(end.getHours() + 1);
-      return { startTime: start, endTime: end };
-    }
+  let roundedTime = roundToNearest15Minutes(now);
+  
+  if (roundedTime <= now) {
+    roundedTime = new Date(roundedTime);
+    roundedTime.setMinutes(roundedTime.getMinutes() + 15);
+  }
 
-    const start = roundedTime;
-    const end = new Date(start);
-    end.setHours(end.getHours() + 1);
-    
-    // Корректируем конечное время, если оно выходит за пределы рабочего дня
-    const adjustedEnd = adjustEndTimeToLimit(end);
-    return { startTime: start, endTime: adjustedEnd };
-  };
+  if (roundedTime > closingTime) {
+    const nextDay = new Date(roundedTime);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const start = getOpeningTime(nextDay);
+    const end = getClosingTime(start); // ✅ До закрытия
+    return { startTime: start, endTime: end };
+  }
+
+  const start = roundedTime;
+  const end = getClosingTime(start); // ✅ До закрытия
+
+  return { startTime: start, endTime: end };
+};
 
   // Функция для получения времени открытия (12:00 текущего дня)
   const getOpeningTime = (date: Date) => {
@@ -229,7 +229,7 @@ export default function HallMapScreen() {
       if (!isBackgroundUpdate) {
         setIsLoading(true);
       } else {
-        setIsUpdating(true);
+        setIsTablesLoading(true); // Используем контекст для индикации загрузки
       }
 
       const response = await ApiService.getTables(
@@ -244,12 +244,11 @@ export default function HallMapScreen() {
         throw new Error('Не удалось загрузить столы');
       }
     } catch (err) {
-      // Используем fallback данные
       const fallbackTables = getFallbackTables();
       setTables(fallbackTables);
     } finally {
       setIsLoading(false);
-      setIsUpdating(false);
+      setIsTablesLoading(false); // Сбрасываем индикатор загрузки
     }
   };
 
@@ -263,186 +262,232 @@ export default function HallMapScreen() {
     loadTables(false);
   }, []);
 
-  // Создаем PanResponder для обработки жестов
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        const { dx, dy } = gestureState;
-        return Math.abs(dx) > 5 || Math.abs(dy) > 5;
-      },
+  useEffect(() => {
+    loadTables(false);
+  }, [startTime, endTime, tablesLastUpdate]); 
 
-      onPanResponderGrant: (evt, gs) => {
-        const touches = evt.nativeEvent.touches;
 
-        panStartRef.current = {
-          translateX: transformRef.current.translateX,
-          translateY: transformRef.current.translateY,
-          scale: transformRef.current.scale,
+const gestureStateRef = useRef<{
+  isZooming: boolean;
+  initialTouches: NativeTouchEvent[];
+  initialDistance: number;
+  initialScale: number;
+}>({
+  isZooming: false,
+  initialTouches: [],
+  initialDistance: 0,
+  initialScale: 1,
+});
+
+// Обновленный PanResponder
+const panResponder = useRef(
+  PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (evt, gestureState) => {
+      const { dx, dy } = gestureState;
+      return Math.abs(dx) > 2 || Math.abs(dy) > 2;
+    },
+
+    onPanResponderGrant: (evt, gs) => {
+      const touches = evt.nativeEvent.touches;
+      
+      // Сохраняем начальное состояние трансформации
+      panStartRef.current = {
+        translateX: transformRef.current.translateX,
+        translateY: transformRef.current.translateY,
+        scale: transformRef.current.scale,
+      };
+
+      // Инициализируем состояние жестов с правильным типом
+      gestureStateRef.current = {
+        isZooming: false,
+        initialTouches: Array.from(touches), // Теперь это NativeTouchEvent[]
+        initialDistance: 0,
+        initialScale: transformRef.current.scale,
+      };
+
+      // Если два касания - готовимся к масштабированию
+      if (touches.length === 2) {
+        const touch1 = touches[0];
+        const touch2 = touches[1];
+        const distance = Math.sqrt(
+          Math.pow(touch2.pageX - touch1.pageX, 2) +
+          Math.pow(touch2.pageY - touch1.pageY, 2)
+        );
+        
+        gestureStateRef.current = {
+          isZooming: true,
+          initialTouches: Array.from(touches),
+          initialDistance: distance,
+          initialScale: transformRef.current.scale,
         };
+      }
+    },
 
-        if (touches.length === 2) {
-          const touch1 = touches[0];
-          const touch2 = touches[1];
-          const distance = Math.sqrt(
-            Math.pow(touch2.pageX - touch1.pageX, 2) +
-            Math.pow(touch2.pageY - touch1.pageY, 2)
-          );
+    onPanResponderMove: (evt, gs) => {
+      const touches = evt.nativeEvent.touches;
+      const currentTouchesCount = touches.length;
 
-          zoomStartRef.current = {
-            distance: distance,
-            scale: transformRef.current.scale,
+      // Масштабирование двумя пальцами
+      if (currentTouchesCount === 2) {
+        const touch1 = touches[0];
+        const touch2 = touches[1];
+        const currentDistance = Math.sqrt(
+          Math.pow(touch2.pageX - touch1.pageX, 2) +
+          Math.pow(touch2.pageY - touch1.pageY, 2)
+        );
+
+        // Если это начало жеста масштабирования
+        if (!gestureStateRef.current.isZooming || gestureStateRef.current.initialDistance === 0) {
+          gestureStateRef.current = {
+            isZooming: true,
+            initialTouches: Array.from(touches),
+            initialDistance: currentDistance,
+            initialScale: transformRef.current.scale,
           };
+          return;
         }
-      },
 
-      onPanResponderMove: (evt, gs) => {
-        const touches = evt.nativeEvent.touches;
+        const scaleChange = currentDistance / gestureStateRef.current.initialDistance;
+        const newScale = Math.max(0.3, Math.min(3, gestureStateRef.current.initialScale * scaleChange));
 
-        if (touches.length === 1) {
-          const sensitivity = Platform.OS === 'android' ? 1.2 : 0.8;
-          const newTranslateX = panStartRef.current.translateX + (gs.dx / panStartRef.current.scale) * sensitivity;
-          const newTranslateY = panStartRef.current.translateY + (gs.dy / panStartRef.current.scale) * sensitivity;
+        setTransform(prev => ({
+          ...prev,
+          scale: newScale
+        }));
+      }
+      // Перемещение одним пальцем (только если не масштабируем)
+      else if (currentTouchesCount === 1 && !gestureStateRef.current.isZooming) {
+        const sensitivity = Platform.OS === 'android' ? 1.2 : 0.8;
+        const newTranslateX = panStartRef.current.translateX + (gs.dx / panStartRef.current.scale) * sensitivity;
+        const newTranslateY = panStartRef.current.translateY + (gs.dy / panStartRef.current.scale) * sensitivity;
 
-          setTransform(prev => ({
-            ...prev,
-            translateX: newTranslateX,
-            translateY: newTranslateY
-          }));
-        }
-        else if (touches.length === 2) {
-          const touch1 = touches[0];
-          const touch2 = touches[1];
-          const currentDistance = Math.sqrt(
-            Math.pow(touch2.pageX - touch1.pageX, 2) +
-            Math.pow(touch2.pageY - touch1.pageY, 2)
-          );
+        setTransform(prev => ({
+          ...prev,
+          translateX: newTranslateX,
+          translateY: newTranslateY
+        }));
+      }
+    },
 
-          if (zoomStartRef.current.distance > 0) {
-            const scaleChange = currentDistance / zoomStartRef.current.distance;
-            const newScale = Math.max(0.3, Math.min(3, zoomStartRef.current.scale * scaleChange));
+    onPanResponderRelease: (evt, gs) => {
+      // Сбрасываем состояние жеста после завершения
+      gestureStateRef.current.isZooming = false;
+    },
 
-            setTransform(prev => ({
-              ...prev,
-              scale: newScale
-            }));
-          }
-        }
-      },
+    onPanResponderTerminate: () => {
+      gestureStateRef.current.isZooming = false;
+    },
 
-      onPanResponderRelease: () => {
-        zoomStartRef.current.distance = 0;
-      },
-
-      onPanResponderTerminationRequest: () => false,
-    })
-  ).current;
+    onPanResponderTerminationRequest: () => true,
+  })
+).current;
 
   // Обработчики для выбора времени
   // Замените обработчики времени:
 
-const handleStartTimeChange = (event: any, selectedDate?: Date) => {
-  setShowStartPicker(false);
-  if (selectedDate) {
-    let newStartTime = selectedDate;
-    
-    // На Android принудительно корректируем минуты
-    if (Platform.OS === 'android') {
-      newStartTime = enforce15MinuteIntervals(selectedDate);
-      
-      // Показываем уведомление, если время было скорректировано
-      const originalMinutes = selectedDate.getMinutes();
-      if (![0, 15, 30, 45].includes(originalMinutes)) {
+  const handleStartTimeChange = (event: any, selectedDate?: Date) => {
+    setShowStartPicker(false);
+    if (selectedDate) {
+      let newStartTime = selectedDate;
+
+      // На Android принудительно корректируем минуты
+      if (Platform.OS === 'android') {
+        newStartTime = enforce15MinuteIntervals(selectedDate);
+
+        // Показываем уведомление, если время было скорректировано
+        const originalMinutes = selectedDate.getMinutes();
+        if (![0, 15, 30, 45].includes(originalMinutes)) {
+          Alert.alert(
+            'Время скорректировано',
+            `Время автоматически округлено до ${formatTime(newStartTime)}`,
+            [{ text: 'OK' }]
+          );
+        }
+      }
+
+      const minStartTime = getMinStartTime();
+
+      // Корректируем время, если оно меньше минимального
+      if (newStartTime < minStartTime) {
+        newStartTime = new Date(minStartTime);
+      }
+
+      // Проверяем, что время в рабочих пределах
+      if (!isTimeInWorkingHours(newStartTime)) {
+        newStartTime = getOpeningTime(newStartTime);
+      }
+
+      // Проверяем минимальный интервал перед установкой нового времени начала
+      const currentEndTime = new Date(endTime);
+      const minAllowedEndTime = new Date(newStartTime);
+      minAllowedEndTime.setHours(newStartTime.getHours() + 1);
+
+      if (currentEndTime < minAllowedEndTime) {
+        // Если текущее время окончания меньше минимально допустимого, показываем ошибку
+        // и не меняем время начала
         Alert.alert(
-          'Время скорректировано',
-          `Время автоматически округлено до ${formatTime(newStartTime)}`,
+          'Недопустимый интервал',
+          `Время окончания должно быть как минимум на 1 час позже времени начала. Текущее время окончания: ${formatTime(endTime)}`,
           [{ text: 'OK' }]
         );
+        return; // Прерываем выполнение, не меняя время начала
       }
+
+      setStartTime(newStartTime);
     }
+  };
 
-    const minStartTime = getMinStartTime();
-    
-    // Корректируем время, если оно меньше минимального
-    if (newStartTime < minStartTime) {
-      newStartTime = new Date(minStartTime);
-    }
+  const handleEndTimeChange = (event: any, selectedDate?: Date) => {
+    setShowEndPicker(false);
+    if (selectedDate) {
+      let newEndTime = selectedDate;
 
-    // Проверяем, что время в рабочих пределах
-    if (!isTimeInWorkingHours(newStartTime)) {
-      newStartTime = getOpeningTime(newStartTime);
-    }
+      // На Android принудительно корректируем минуты
+      if (Platform.OS === 'android') {
+        newEndTime = enforce15MinuteIntervals(selectedDate);
 
-    // Проверяем минимальный интервал перед установкой нового времени начала
-    const currentEndTime = new Date(endTime);
-    const minAllowedEndTime = new Date(newStartTime);
-    minAllowedEndTime.setHours(newStartTime.getHours() + 1);
+        // Показываем уведомление, если время было скорректировано
+        const originalMinutes = selectedDate.getMinutes();
+        if (![0, 15, 30, 45].includes(originalMinutes)) {
+          Alert.alert(
+            'Время скорректировано',
+            `Время автоматически округлено до ${formatTime(newEndTime)}`,
+            [{ text: 'OK' }]
+          );
+        }
+      }
 
-    if (currentEndTime < minAllowedEndTime) {
-      // Если текущее время окончания меньше минимально допустимого, показываем ошибку
-      // и не меняем время начала
-      Alert.alert(
-        'Недопустимый интервал',
-        `Время окончания должно быть как минимум на 1 час позже времени начала. Текущее время окончания: ${formatTime(endTime)}`,
-        [{ text: 'OK' }]
-      );
-      return; // Прерываем выполнение, не меняя время начала
-    }
+      const maxEndTime = getMaxEndTime(startTime);
 
-    setStartTime(newStartTime);
-  }
-};
+      // Проверяем минимальный интервал в 1 час
+      const minEndTime = new Date(startTime);
+      minEndTime.setHours(startTime.getHours() + 1);
 
-const handleEndTimeChange = (event: any, selectedDate?: Date) => {
-  setShowEndPicker(false);
-  if (selectedDate) {
-    let newEndTime = selectedDate;
-    
-    // На Android принудительно корректируем минуты
-    if (Platform.OS === 'android') {
-      newEndTime = enforce15MinuteIntervals(selectedDate);
-      
-      // Показываем уведомление, если время было скорректировано
-      const originalMinutes = selectedDate.getMinutes();
-      if (![0, 15, 30, 45].includes(originalMinutes)) {
+      if (newEndTime < minEndTime) {
         Alert.alert(
-          'Время скорректировано',
-          `Время автоматически округлено до ${formatTime(newEndTime)}`,
+          'Ошибка',
+          'Минимальное время бронирования - 1 час',
           [{ text: 'OK' }]
         );
+        // Не устанавливаем новое время, оставляем предыдущее корректное значение
+        return;
       }
+
+      // Проверяем максимальное время
+      if (newEndTime > maxEndTime) {
+        Alert.alert(
+          'Ограничение',
+          'Бронирование возможно только до 04:00 следующего дня',
+          [{ text: 'OK' }]
+        );
+        // Не устанавливаем новое время, оставляем предыдущее корректное значение
+        return;
+      }
+
+      setEndTime(newEndTime);
     }
-
-    const maxEndTime = getMaxEndTime(startTime);
-
-    // Проверяем минимальный интервал в 1 час
-    const minEndTime = new Date(startTime);
-    minEndTime.setHours(startTime.getHours() + 1);
-    
-    if (newEndTime <= minEndTime) {
-      Alert.alert(
-        'Ошибка', 
-        'Минимальное время бронирования - 1 час',
-        [{ text: 'OK' }]
-      );
-      // Не устанавливаем новое время, оставляем предыдущее корректное значение
-      return;
-    }
-
-    // Проверяем максимальное время
-    if (newEndTime > maxEndTime) {
-      Alert.alert(
-        'Ограничение', 
-        'Бронирование возможно только до 04:00 следующего дня',
-        [{ text: 'OK' }]
-      );
-      // Не устанавливаем новое время, оставляем предыдущее корректное значение
-      return;
-    }
-
-    setEndTime(newEndTime);
-  }
-};
+  };
 
   // Функции для переключения (toggle) пикеров
   const openStartTimePicker = () => {
@@ -531,17 +576,19 @@ const handleEndTimeChange = (event: any, selectedDate?: Date) => {
 
   // Обработчик добавления в заказ
   const handleAddToOrder = (reservationData: any) => {
-    const formatDateTime = (date: Date) => {
-      return `${formatDateCompact(date)} ${formatTime(date)}`;
-    };
+    setTableReservation({
+      table: reservationData.table,
+      startTime: reservationData.startTime,
+      endTime: reservationData.endTime,
+      guestsCount: reservationData.peopleCount,
+    });
 
     Alert.alert(
-      'Добавлено в заказ',
-      `Стол №${reservationData.table.number} забронирован\nС ${formatDateTime(reservationData.startTime)} по ${formatDateTime(reservationData.endTime)}\nДля ${reservationData.peopleCount} человек(а)`
+      'Добавлено в корзину',
+      `Стол №${reservationData.table.number} добавлен в корзину`
     );
     setModalVisible(false);
     setSelectedTable(null);
-    // Перезагружаем столы для обновления доступности
     loadTables(true);
   };
 
@@ -607,7 +654,17 @@ const handleEndTimeChange = (event: any, selectedDate?: Date) => {
       </TouchableOpacity>
     );
   };
+  const handleOpenCart = useCallback(() => {
+    setCartModalVisible(true);
+  }, []);
 
+  const handleOrderSuccess = useCallback(() => {
+  loadTables(true);
+}, []);
+
+  const handleCloseCart = useCallback(() => {
+    setCartModalVisible(false);
+  }, []);
   return (
     <View style={hallMapStyles.container}>
       <View style={hallMapStyles.content}>
@@ -784,7 +841,13 @@ const handleEndTimeChange = (event: any, selectedDate?: Date) => {
           </View>
         </View>
       </View>
+      <CartModal
+        visible={cartModalVisible}
+        onClose={handleCloseCart}
+        onOrderSuccess={handleOrderSuccess}  
+      />
 
+      <FloatingCartButton onPress={handleOpenCart} />
       {/* Модальное окно бронирования стола */}
       {selectedTableData && (
         <TableReservationModal

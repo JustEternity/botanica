@@ -5,6 +5,7 @@ export const tableReservationStyles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 1000,
   },
   modalContent: {
     backgroundColor: 'white',

@@ -111,6 +111,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     paddingHorizontal: 10,
     paddingBottom: 30,
+    zIndex: 1000,
   },
   menuContent: {
     backgroundColor: '#f8f9fa',

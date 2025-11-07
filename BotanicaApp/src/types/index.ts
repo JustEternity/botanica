@@ -148,3 +148,24 @@ export interface TablesResponse {
     end: string;
   };
 }
+
+export interface OrdersResponse {
+  success: boolean;
+  orders: Order[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
+
+export interface TableOrdersResponse {
+  success: boolean;
+  orders: Order[];
+  table: Table;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}

@@ -232,6 +232,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     maxHeight: SCREEN_HEIGHT * 0.85,
     paddingBottom: 20,
+    zIndex: 1000,
   },
   header: {
     flexDirection: 'row',

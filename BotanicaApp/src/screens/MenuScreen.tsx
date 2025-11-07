@@ -1,4 +1,3 @@
-// screens/MenuScreen.tsx
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
@@ -17,15 +16,19 @@ import {
   Platform,
   RefreshControl,
 } from 'react-native';
+import { useTable } from '../contexts/TableContext';
 import { MenuSection, MenuItem, MenuCategory, ContextMenuAction } from '../types';
 import MenuModal from '../components/MenuModal';
 import { menuStyles } from '../styles/menuStyles';
 import { ApiService } from '../services/api';
 import { getOptimizedImageUrl } from '../utils/imageUtils';
 import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext';
 import ContextMenu from '../components/ContextMenu';
 import AndroidContextMenu from '../components/AndroidContextMenu';
 import EditMenuItemModal from '../components/EditMenuItemModal';
+import FloatingCartButton from '../components/FloatingCartButton';
+import CartModal from '../components/CartModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -38,8 +41,6 @@ const LOADING_PHRASES = [
   "Настраиваем атмосферу...",
   "Готовим вкусы..."
 ];
-
-// Убрали CATEGORIES_PER_PAGE - теперь загружаем все категории сразу
 
 // Компонент элемента меню
 const MenuItemComponent: React.FC<{
@@ -142,9 +143,12 @@ const MenuItemComponent: React.FC<{
          prevProps.item.is_available === nextProps.item.is_available;
 });
 
-// Основной компонент экрана меню - теперь загружаем все категории сразу
+// Основной компонент экрана меню
 export default function MenuScreen() {
   const { user } = useAuth();
+  const { addMenuItem } = useCart();
+  const { refreshTables } = useTable();
+  
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [isScrolling, setIsScrolling] = useState(false);
   const [menuData, setMenuData] = useState<MenuSection[]>([]);
@@ -153,8 +157,6 @@ export default function MenuScreen() {
   const [loadingPhrase, setLoadingPhrase] = useState(LOADING_PHRASES[0]);
   const [isDataReady, setIsDataReady] = useState(false);
   
-  // Убрали состояния для постраничной загрузки
-
   // Остальные состояния
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -165,6 +167,7 @@ export default function MenuScreen() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showAddButton, setShowAddButton] = useState(false);
+  const [cartModalVisible, setCartModalVisible] = useState(false);
 
   const categoriesRef = useRef<FlatList>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -185,8 +188,6 @@ export default function MenuScreen() {
       
       if (data.length > 0) {
         setSelectedCategory(data[0].id);
-        
-        // Убираем задержку для isDataReady чтобы быстрее показать контент
         setIsDataReady(true);
       }
       
@@ -204,13 +205,12 @@ export default function MenuScreen() {
     loadMenuData();
   }, [loadMenuData]);
 
-  // Упрощенный обработчик скролла - убрали постраничную загрузку
+  // Обработчик скролла
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (isScrolling || !menuData.length || !isDataReady) return;
 
     const scrollY = event.nativeEvent.contentOffset.y;
     
-    // Логика определения активной категории
     let newSelectedCategory = selectedCategory;
     let foundInViewport = false;
 
@@ -258,7 +258,7 @@ export default function MenuScreen() {
     }
   }, [isScrolling, selectedCategory, menuData, isDataReady]);
 
-  // Остальные функции без изменений
+  // Функции для обновления
   const onRefresh = useCallback(() => {
     if (user?.role !== 'admin') {
       setRefreshing(false);
@@ -294,16 +294,24 @@ export default function MenuScreen() {
     setModalVisible(true);
   }, []);
 
-  const handleAddToOrder = useCallback((item: MenuItem, quantity: number) => {
+  // Обработчик добавления в корзину
+  const handleAddToCart = useCallback((item: MenuItem, quantity: number) => {
+    addMenuItem(item, quantity);
     Alert.alert(
-      'Добавлено в заказ',
+      'Добавлено в корзину',
       `${item.name} x${quantity} на сумму ${item.price * quantity} ₽`
     );
-  }, []);
+  }, [addMenuItem]);
 
   const closeModal = useCallback(() => {
     setModalVisible(false);
   }, []);
+
+  const handleOrderSuccess = useCallback(() => {
+    // Обновляем столики через контекст
+    refreshTables();
+    
+  }, [refreshTables]);
 
   const handleLongPress = useCallback((item: MenuItem) => {
     if (user?.role === 'admin') {
@@ -360,11 +368,6 @@ export default function MenuScreen() {
 
   const handleSaveItem = useCallback(async (itemData: MenuItem) => {
     try {
-      if (editingItem) {
-        Alert.alert('Успех', 'Товар обновлен (в демо-режиме)');
-      } else {
-        Alert.alert('Успех', 'Товар добавлен (в демо-режиме)');
-      }
       loadMenuData();
     } catch (error) {
       Alert.alert('Ошибка', 'Не удалось сохранить товар');
@@ -383,6 +386,14 @@ export default function MenuScreen() {
   const handleCloseEditModal = useCallback(() => {
     setEditModalVisible(false);
     setEditingItem(null);
+  }, []);
+
+  const handleOpenCart = useCallback(() => {
+    setCartModalVisible(true);
+  }, []);
+
+  const handleCloseCart = useCallback(() => {
+    setCartModalVisible(false);
   }, []);
 
   const categories: MenuCategory[] = menuData.map(section => ({
@@ -590,18 +601,19 @@ export default function MenuScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Теперь рендерим ВСЕ категории сразу */}
+        {/* Рендерим ВСЕ категории сразу */}
         {menuData.map(renderMenuSection)}
         
         <View style={menuStyles.bottomSpace} />
       </ScrollView>
 
+      {/* Модальные окна */}
       <MenuModal
         visible={modalVisible}
         item={selectedItem}
         initialQuantity={initialQuantity}
         onClose={closeModal}
-        onAddToOrder={handleAddToOrder}
+        onAddToOrder={handleAddToCart}
       />
 
       <EditMenuItemModal
@@ -612,6 +624,16 @@ export default function MenuScreen() {
         onSave={handleSaveItem}
       />
 
+      <CartModal
+        visible={cartModalVisible}
+        onClose={handleCloseCart}
+        onOrderSuccess={handleOrderSuccess}
+      />
+
+      {/* Плавающая кнопка корзины */}
+      <FloatingCartButton onPress={handleOpenCart} />
+
+      {/* Контекстные меню */}
       {Platform.OS === 'ios' && (
         <ContextMenu
           item={selectedContextItem}

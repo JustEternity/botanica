@@ -86,7 +86,7 @@ export const profileStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  
+
   // Стили для формы входа
   loginHeader: {
     alignItems: 'center',
@@ -130,17 +130,20 @@ export const profileStyles = StyleSheet.create({
   registerLinkContainer: {
     marginTop: 25,
     alignItems: 'center',
+    width: '100%', // Добавляем полную ширину
   },
   registerText: {
     fontSize: 16,
     color: '#666',
+    textAlign: 'center', // Центрируем текст
+    width: '100%', // Занимает всю ширину контейнера
   },
   registerLink: {
     color: '#2E7D32',
     fontWeight: 'bold',
     textDecorationLine: 'underline',
   },
-  
+
   // Стили для информации пользователя
   userInfo: {
     alignItems: 'center',

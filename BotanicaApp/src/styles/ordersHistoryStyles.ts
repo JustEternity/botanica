@@ -151,5 +151,133 @@ export const orderHistoryStyles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2E7D32',
     fontSize: 18,
-  }
+  },
+  filterSection: {
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  filterTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+  },
+  tablesScroll: {
+    marginHorizontal: -5,
+  },
+  tablesContainer: {
+    paddingHorizontal: 5,
+    alignItems: 'center',
+  },
+  tableFilterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 20,
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  tableFilterButtonActive: {
+    backgroundColor: '#2E7D32',
+  },
+  tableFilterText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  tableFilterTextActive: {
+    color: '#fff',
+  },
+
+  // Стили для состояний
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#2E7D32',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#F44336',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#2E7D32',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+
+  // Стили для контента заказов
+  ordersContainer: {
+    flex: 1,
+  },
+
+
+  // Дополнительные стили для информации о заказе
+  guestsText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
+  },
+  notesSection: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+  },
+  notesLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  notesText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+
+  // Кнопка отмены
+  cancelButton: {
+    backgroundColor: '#ffebee',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginLeft: 12,
+  },
+  cancelButtonText: {
+    fontSize: 12,
+    color: '#D32F2F',
+    fontWeight: '600',
+  },
+
 });

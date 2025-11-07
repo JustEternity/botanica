@@ -79,8 +79,8 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       'Вы уверены, что хотите выйти?',
       [
         { text: 'Отмена', style: 'cancel' },
-        { 
-          text: 'Выйти', 
+        {
+          text: 'Выйти',
           style: 'destructive',
           onPress: logout
         }
@@ -210,7 +210,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           <View style={profileStyles.registerLinkContainer}>
             <Text style={profileStyles.registerText}>
               Нет аккаунта?{' '}
-              <Text 
+              <Text
                 style={profileStyles.registerLink}
                 onPress={openRegisterModal}
               >

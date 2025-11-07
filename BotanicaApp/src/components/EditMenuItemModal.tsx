@@ -567,6 +567,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'flex-end',
+        zIndex: 1000,
     },
     modalContent: {
         backgroundColor: 'white',
