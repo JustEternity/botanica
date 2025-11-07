@@ -53,13 +53,6 @@ export const hallMapStyles = StyleSheet.create({
     marginBottom: 12,
     fontStyle: 'italic',
   },
-
-  mapContainer: {
-    flex: 1,
-    backgroundColor: '#E8F5E8',
-    overflow: 'hidden',
-    position: 'relative',
-  },
   simpleMap: {
     width: 600,
     height: 500,
@@ -346,5 +339,31 @@ export const hallMapStyles = StyleSheet.create({
     fontSize: 18,
     color: '#666',
     fontWeight: 'bold',
+  },
+  mapContainer: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    overflow: 'hidden',
+    position: 'relative',
+    // Размеры контейнера карты
+    width: '100%',
+    height: 400, // или нужная вам высота
+  },
+
+  transformContainer: {
+    // Размеры области трансформации (должны соответствовать размеру картинки)
+    width: 550, // ширина вашей картинки в пикселях
+    height: 250, // высота вашей картинки в пикселях
+  },
+
+  mapBackground: {
+    // Картинка занимает всю область transformContainer
+    width: '100%',
+    height: '100%',
+  },
+
+  tablesContainer: {
+    // Контейнер столов занимает всю область
+    ...StyleSheet.absoluteFillObject,
   },
 });
