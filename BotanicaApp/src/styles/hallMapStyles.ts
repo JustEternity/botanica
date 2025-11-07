@@ -366,4 +366,16 @@ export const hallMapStyles = StyleSheet.create({
     // Контейнер столов занимает всю область
     ...StyleSheet.absoluteFillObject,
   },
+  pickerCloseButton: {
+    backgroundColor: '#007bff',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  pickerCloseButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
 });

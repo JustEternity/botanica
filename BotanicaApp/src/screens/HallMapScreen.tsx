@@ -1,3 +1,4 @@
+// рабочее
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTable } from '../contexts/TableContext';
 import { useCart } from '../contexts/CartContext';
@@ -12,7 +13,6 @@ import {
   PanResponder,
   Dimensions,
   NativeTouchEvent,
-  Image,
   ImageBackground,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -21,7 +21,11 @@ import { hallMapStyles } from '../styles/hallMapStyles';
 import TableReservationModal from './TableReservationScreen';
 import { ApiService } from '../services/api';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+// Размеры вашей картинки
+const CONTENT_WIDTH = 800;
+const CONTENT_HEIGHT = 600;
 
 export default function HallMapScreen() {
   const { tablesLastUpdate, setIsTablesLoading } = useTable();
@@ -66,12 +70,12 @@ export default function HallMapScreen() {
   const getNearestAvailableTime = (): { startTime: Date; endTime: Date } => {
     const now = new Date();
     const openingTime = getOpeningTime(now);
-    const closingTime = getClosingTime(now);
+    const maxStartTime = getMaxStartTime(now);
 
     // Если сейчас до открытия, возвращаем первое доступное время
     if (now < openingTime) {
       const start = new Date(openingTime);
-      const end = getClosingTime(start);
+      const end = getMinEndTime(start);
       return { startTime: start, endTime: end };
     }
 
@@ -82,19 +86,12 @@ export default function HallMapScreen() {
       roundedTime.setMinutes(roundedTime.getMinutes() + 15);
     }
 
-    if (roundedTime > closingTime) {
-      const nextDay = new Date(roundedTime);
-      nextDay.setDate(nextDay.getDate() + 1);
-      const start = getOpeningTime(nextDay);
-      const end = getClosingTime(start);
-      return { startTime: start, endTime: end };
-    }
-
-    const start = roundedTime;
-    const end = getClosingTime(start);
+    const start = roundedTime > maxStartTime ? new Date(maxStartTime) : roundedTime;
+    const end = getMinEndTime(start);
 
     return { startTime: start, endTime: end };
   };
+
 
   // Функция для получения времени открытия (12:00 текущего дня)
   const getOpeningTime = (date: Date) => {
@@ -124,9 +121,33 @@ export default function HallMapScreen() {
     return time >= openingTime && time <= closingTime;
   };
 
+  const getMaxStartTime = (selectedDate?: Date) => {
+    const date = selectedDate || new Date();
+    const maxStart = getClosingTime(date); // 04:00 следующего дня
+    maxStart.setHours(3, 0, 0, 0); // Устанавливаем 03:00
+    return maxStart;
+  };
+
   // Функция для получения минимального времени начала
-  const getMinStartTime = () => {
+  const getMinStartTime = (selectedDate?: Date) => {
     const now = new Date();
+
+    // Если передана конкретная дата, проверяем является ли она сегодняшней
+    if (selectedDate) {
+      const isToday = selectedDate.toDateString() === now.toDateString();
+
+      if (isToday) {
+        // Если сегодня, то минимальное время - текущее время или 12:00, что больше
+        const openingTime = getOpeningTime(now);
+        const minTime = now > openingTime ? new Date(now) : new Date(openingTime);
+        return enforce15MinuteIntervals(minTime);
+      } else {
+        // Если не сегодня, то минимальное время - 12:00 выбранного дня
+        return getOpeningTime(selectedDate);
+      }
+    }
+
+    // Если дата не передана, используем логику для текущего дня
     const openingTime = getOpeningTime(now);
     const minTime = now > openingTime ? new Date(now) : new Date(openingTime);
     return enforce15MinuteIntervals(minTime);
@@ -135,6 +156,12 @@ export default function HallMapScreen() {
   // Функция для получения максимального времени окончания
   const getMaxEndTime = (startTime: Date) => {
     return getClosingTime(startTime);
+  };
+
+  const getMinEndTime = (startTime: Date) => {
+    const minEnd = new Date(startTime);
+    minEnd.setHours(startTime.getHours() + 1, 0, 0, 0);
+    return minEnd;
   };
 
   // Состояния для времени бронирования
@@ -267,6 +294,30 @@ export default function HallMapScreen() {
     loadTables(false);
   }, [startTime, endTime, tablesLastUpdate]);
 
+  // ПРОСТАЯ функция ограничения перемещения
+  const applyBounds = useCallback((newTransform: { scale: number; translateX: number; translateY: number}) => {
+    const { scale, translateX, translateY } = newTransform;
+
+    // Ограничиваем масштаб
+    const clampedScale = Math.max(0.5, Math.min(3, scale));
+
+    // НАСТРАИВАЕМЫЕ ПАРАМЕТРЫ ГРАНИЦ:
+    const leftBound = CONTENT_WIDTH * 0.3;    // 5% от ширины карты (слева)
+    const rightBound = CONTENT_WIDTH * 0.05;    // 10% от ширины карты (справа)
+    const topBound = CONTENT_HEIGHT * 0.05;     // 10% от высоты карты (сверху)
+    const bottomBound = CONTENT_HEIGHT * 0.3; // 5% от высоты карты (снизу)
+
+    // Ограничиваем перемещение с разными границами для разных направлений
+    const clampedTranslateX = Math.max(-leftBound, Math.min(rightBound, translateX));
+    const clampedTranslateY = Math.max(-topBound, Math.min(bottomBound, translateY));
+
+    return {
+      scale: clampedScale,
+      translateX: clampedTranslateX,
+      translateY: clampedTranslateY,
+    };
+  }, []);
+
   const gestureStateRef = useRef<{
     isZooming: boolean;
     initialTouches: NativeTouchEvent[];
@@ -279,7 +330,7 @@ export default function HallMapScreen() {
     initialScale: 1,
   });
 
-  // Обновленный PanResponder
+  // Обновленный PanResponder с плавным масштабированием
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -343,24 +394,30 @@ export default function HallMapScreen() {
             return;
           }
 
-          const scaleChange = currentDistance / gestureStateRef.current.initialDistance;
+          // Более плавное масштабирование
+          const scaleChange = Math.pow(currentDistance / gestureStateRef.current.initialDistance, 0.7);
           const newScale = Math.max(0.3, Math.min(3, gestureStateRef.current.initialScale * scaleChange));
 
-          setTransform(prev => ({
-            ...prev,
-            scale: newScale
-          }));
+          const newTransform = applyBounds({
+            scale: newScale,
+            translateX: transformRef.current.translateX,
+            translateY: transformRef.current.translateY,
+          });
+
+          setTransform(newTransform);
         }
         else if (currentTouchesCount === 1 && !gestureStateRef.current.isZooming) {
           const sensitivity = Platform.OS === 'android' ? 1.2 : 0.8;
           const newTranslateX = panStartRef.current.translateX + (gs.dx / panStartRef.current.scale) * sensitivity;
           const newTranslateY = panStartRef.current.translateY + (gs.dy / panStartRef.current.scale) * sensitivity;
 
-          setTransform(prev => ({
-            ...prev,
+          const newTransform = applyBounds({
+            scale: transformRef.current.scale,
             translateX: newTranslateX,
-            translateY: newTranslateY
-          }));
+            translateY: newTranslateY,
+          });
+
+          setTransform(newTransform);
         }
       },
 
@@ -376,9 +433,15 @@ export default function HallMapScreen() {
     })
   ).current;
 
-  // Обработчики для выбора времени
+  // Обработчики для выбора времени (возвращаем исходную логику)
+
+  const areTimesInSameWorkingDay = (startTime: Date, endTime: Date) => {
+    const startClosing = getClosingTime(startTime);
+    return endTime <= startClosing;
+  };
+
   const handleStartTimeChange = (event: any, selectedDate?: Date) => {
-    setShowStartPicker(false);
+    setShowStartPicker(Platform.OS === 'ios');
     if (selectedDate) {
       let newStartTime = selectedDate;
 
@@ -395,35 +458,43 @@ export default function HallMapScreen() {
         }
       }
 
-      const minStartTime = getMinStartTime();
+      const minStartTime = getMinStartTime(selectedDate);
+      const maxStartTime = getMaxStartTime(selectedDate);
 
       if (newStartTime < minStartTime) {
         newStartTime = new Date(minStartTime);
       }
 
-      if (!isTimeInWorkingHours(newStartTime)) {
-        newStartTime = getOpeningTime(newStartTime);
+      if (newStartTime > maxStartTime) {
+        Alert.alert(
+          'Ограничение',
+          'Время начала бронирования возможно только до 03:00 следующего дня',
+          [{ text: 'OK' }]
+        );
+        return;
       }
 
-      const currentEndTime = new Date(endTime);
-      const minAllowedEndTime = new Date(newStartTime);
-      minAllowedEndTime.setHours(newStartTime.getHours() + 1);
+      // Автоматически устанавливаем время окончания
+      const newEndTime = getMinEndTime(newStartTime);
 
-      if (currentEndTime < minAllowedEndTime) {
+      // Проверяем, что время окончания не превышает максимальное
+      const maxEndTime = getMaxEndTime(newStartTime);
+      if (newEndTime > maxEndTime) {
         Alert.alert(
           'Недопустимый интервал',
-          `Время окончания должно быть как минимум на 1 час позже времени начала. Текущее время окончания: ${formatTime(endTime)}`,
+          'Невозможно установить время окончания в пределах рабочего дня',
           [{ text: 'OK' }]
         );
         return;
       }
 
       setStartTime(newStartTime);
+      setEndTime(newEndTime);
     }
   };
 
   const handleEndTimeChange = (event: any, selectedDate?: Date) => {
-    setShowEndPicker(false);
+    setShowEndPicker(Platform.OS === 'ios');
     if (selectedDate) {
       let newEndTime = selectedDate;
 
@@ -440,15 +511,13 @@ export default function HallMapScreen() {
         }
       }
 
+      const minEndTime = getMinEndTime(startTime);
       const maxEndTime = getMaxEndTime(startTime);
-
-      const minEndTime = new Date(startTime);
-      minEndTime.setHours(startTime.getHours() + 1);
 
       if (newEndTime < minEndTime) {
         Alert.alert(
           'Ошибка',
-          'Минимальное время бронирования - 1 час',
+          `Минимальное время окончания - ${formatTime(minEndTime)} (на 1 час позже времени начала)`,
           [{ text: 'OK' }]
         );
         return;
@@ -457,7 +526,17 @@ export default function HallMapScreen() {
       if (newEndTime > maxEndTime) {
         Alert.alert(
           'Ограничение',
-          'Бронирование возможно только до 04:00 следующего дня',
+          'Время окончания не может выходить за пределы рабочего дня (до 04:00 следующего дня)',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Проверяем, что оба времени в одном рабочем дне
+      if (!areTimesInSameWorkingDay(startTime, newEndTime)) {
+        Alert.alert(
+          'Ошибка',
+          'Время начала и окончания должны находиться в рамках одного рабочего дня',
           [{ text: 'OK' }]
         );
         return;
@@ -467,7 +546,7 @@ export default function HallMapScreen() {
     }
   };
 
-  // Функции для переключения пикеров
+  // Функции для переключения пикеров (возвращаем исходную логику)
   const openStartTimePicker = () => {
     if (showStartPicker) {
       setShowStartPicker(false);
@@ -568,30 +647,35 @@ export default function HallMapScreen() {
     loadTables(true);
   };
 
-  // Обработчик масштабирования кнопками
+  // Обработчик масштабирования кнопками с плавным изменением
   const handleZoomIn = () => {
-    setTransform(prev => ({
-      ...prev,
-      scale: Math.min(prev.scale + 0.2, 3)
-    }));
+    const newTransform = applyBounds({
+      scale: transform.scale * 1.5, // Уменьшенный коэффициент для плавности
+      translateX: transform.translateX,
+      translateY: transform.translateY,
+    });
+    setTransform(newTransform);
   };
 
   const handleZoomOut = () => {
-    setTransform(prev => ({
-      ...prev,
-      scale: Math.max(prev.scale - 0.2, 0.3)
-    }));
+    const newTransform = applyBounds({
+      scale: transform.scale / 1.5, // Уменьшенный коэффициент для плавности
+      translateX: transform.translateX,
+      translateY: transform.translateY,
+    });
+    setTransform(newTransform);
   };
 
   // Функция сброса карты
   const handleResetMap = () => {
-    setTransform({
+    setTransform(applyBounds({
       scale: 1,
       translateX: 0,
       translateY: 0,
-    });
+    }));
   };
 
+  // Рендер отдельного стола на карте
   const renderTable = (table: Table) => {
     if (!table || !table.position) {
       return null;
@@ -720,6 +804,14 @@ export default function HallMapScreen() {
                 maximumDate={getMaxEndTime(startTime)}
                 minuteInterval={15}
               />
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={hallMapStyles.pickerCloseButton}
+                  onPress={() => setShowStartPicker(false)}
+                >
+                  <Text style={hallMapStyles.pickerCloseButtonText}>Готово</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -734,6 +826,14 @@ export default function HallMapScreen() {
                 maximumDate={getMaxEndTime(startTime)}
                 minuteInterval={15}
               />
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={hallMapStyles.pickerCloseButton}
+                  onPress={() => setShowEndPicker(false)}
+                >
+                  <Text style={hallMapStyles.pickerCloseButtonText}>Готово</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
