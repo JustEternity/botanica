@@ -69,29 +69,50 @@ export default function HallMapScreen() {
   // Функция для получения ближайшего доступного времени
   const getNearestAvailableTime = (): { startTime: Date; endTime: Date } => {
     const now = new Date();
-    const openingTime = getOpeningTime(now);
+    const minStartTime = getMinStartTime(now);
     const maxStartTime = getMaxStartTime(now);
 
-    // Если сейчас до открытия, возвращаем первое доступное время
-    if (now < openingTime) {
-      const start = new Date(openingTime);
-      const end = getMinEndTime(start);
-      return { startTime: start, endTime: end };
+    let startTime = enforce15MinuteIntervals(now);
+
+    // Корректируем время начала, если оно недопустимо
+    if (!isValidStartTime(startTime)) {
+      // Если сейчас между 04:00 и 12:00, устанавливаем 12:00
+      if (now.getHours() >= 4 && now.getHours() < 12) {
+        startTime = getOpeningTime(now);
+      }
+      // Если сейчас после 23:59, устанавливаем 00:00 следующего дня
+      else if (now.getHours() >= 24 || now.getHours() < 0) {
+        startTime = new Date(now);
+        startTime.setDate(startTime.getDate() + 1);
+        startTime.setHours(0, 0, 0, 0);
+      }
     }
 
-    let roundedTime = roundToNearest15Minutes(now);
-
-    if (roundedTime <= now) {
-      roundedTime = new Date(roundedTime);
-      roundedTime.setMinutes(roundedTime.getMinutes() + 15);
+    if (startTime < minStartTime) {
+      startTime = new Date(minStartTime);
     }
 
-    const start = roundedTime > maxStartTime ? new Date(maxStartTime) : roundedTime;
-    const end = getMinEndTime(start);
+    if (startTime > maxStartTime) {
+      startTime = new Date(maxStartTime);
+    }
 
-    return { startTime: start, endTime: end };
+    const endTime = getMinEndTime(startTime);
+    return { startTime, endTime };
   };
 
+  // Функция для проверки допустимости времени начала
+  const isValidStartTime = (time: Date) => {
+    const hours = time.getHours();
+    // Разрешаем время с 00:00 до 03:00 и с 12:00 до 23:59
+    return (hours >= 0 && hours < 4) || (hours >= 12 && hours <= 23);
+  };
+
+  // Функция для проверки допустимости времени окончания
+  const isValidEndTime = (time: Date) => {
+    const hours = time.getHours();
+    // Разрешаем время с 00:00 до 04:00 и с 13:00 до 23:59
+    return (hours >= 0 && hours < 5) || (hours >= 13 && hours <= 23);
+  };
 
   // Функция для получения времени открытия (12:00 текущего дня)
   const getOpeningTime = (date: Date) => {
@@ -123,8 +144,21 @@ export default function HallMapScreen() {
 
   const getMaxStartTime = (selectedDate?: Date) => {
     const date = selectedDate || new Date();
-    const maxStart = getClosingTime(date); // 04:00 следующего дня
-    maxStart.setHours(3, 0, 0, 0); // Устанавливаем 03:00
+    const maxStart = new Date(date);
+
+    // Если выбран сегодняшний день и сейчас после полуночи, но до 03:00
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+
+    if (isToday && now.getHours() < 3) {
+      // Максимум - 03:00 сегодня
+      maxStart.setHours(3, 0, 0, 0);
+      return maxStart;
+    }
+
+    // Иначе максимум - 03:00 следующего дня
+    maxStart.setDate(maxStart.getDate() + 1);
+    maxStart.setHours(3, 0, 0, 0);
     return maxStart;
   };
 
@@ -132,23 +166,43 @@ export default function HallMapScreen() {
   const getMinStartTime = (selectedDate?: Date) => {
     const now = new Date();
 
-    // Если передана конкретная дата, проверяем является ли она сегодняшней
     if (selectedDate) {
       const isToday = selectedDate.toDateString() === now.toDateString();
 
       if (isToday) {
         // Если сегодня, то минимальное время - текущее время или 12:00, что больше
         const openingTime = getOpeningTime(now);
+
+        // Если сейчас между 00:00 и 12:00, разрешаем текущее время
+        if (now.getHours() < 12) {
+          // Но не раньше 00:00 сегодня
+          const minTime = new Date(now);
+          minTime.setHours(0, 0, 0, 0);
+          return now > minTime ? enforce15MinuteIntervals(now) : minTime;
+        }
+
+        // Если сейчас после 12:00, используем обычную логику
         const minTime = now > openingTime ? new Date(now) : new Date(openingTime);
         return enforce15MinuteIntervals(minTime);
       } else {
-        // Если не сегодня, то минимальное время - 12:00 выбранного дня
-        return getOpeningTime(selectedDate);
+        // Если не сегодня, то минимальное время - 00:00 выбранного дня
+        const minTime = new Date(selectedDate);
+        minTime.setHours(0, 0, 0, 0);
+        return minTime;
       }
     }
 
     // Если дата не передана, используем логику для текущего дня
     const openingTime = getOpeningTime(now);
+
+    // Если сейчас между 00:00 и 12:00, разрешаем текущее время
+    if (now.getHours() < 12) {
+      const minTime = new Date(now);
+      minTime.setHours(0, 0, 0, 0);
+      return now > minTime ? enforce15MinuteIntervals(now) : minTime;
+    }
+
+    // Если сейчас после 12:00, используем обычную логику
     const minTime = now > openingTime ? new Date(now) : new Date(openingTime);
     return enforce15MinuteIntervals(minTime);
   };
@@ -458,6 +512,16 @@ export default function HallMapScreen() {
         }
       }
 
+      // Проверяем допустимость времени начала
+      if (!isValidStartTime(newStartTime)) {
+        Alert.alert(
+          'Недопустимое время начала',
+          'Время начала можно выбрать с 00:00 до 03:00 или с 12:00 до 23:59',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
       const minStartTime = getMinStartTime(selectedDate);
       const maxStartTime = getMaxStartTime(selectedDate);
 
@@ -509,6 +573,16 @@ export default function HallMapScreen() {
             [{ text: 'OK' }]
           );
         }
+      }
+
+      // Проверяем допустимость времени окончания
+      if (!isValidEndTime(newEndTime)) {
+        Alert.alert(
+          'Недопустимое время окончания',
+          'Время окончания можно выбрать с 00:00 до 04:00 или с 13:00 до 23:59',
+          [{ text: 'OK' }]
+        );
+        return;
       }
 
       const minEndTime = getMinEndTime(startTime);
