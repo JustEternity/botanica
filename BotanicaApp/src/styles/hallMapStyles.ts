@@ -353,7 +353,7 @@ export const hallMapStyles = StyleSheet.create({
   transformContainer: {
     // Размеры области трансформации (должны соответствовать размеру картинки)
     width: 550, // ширина вашей картинки в пикселях
-    height: 250, // высота вашей картинки в пикселях
+    height: 420, // высота вашей картинки в пикселях
   },
 
   mapBackground: {

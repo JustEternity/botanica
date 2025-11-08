@@ -935,7 +935,7 @@ export default function HallMapScreen() {
           >
             {/* Фоновое изображение схемы зала */}
             <ImageBackground
-              source={require('../../assets/icon.png')}
+              source={require('../../assets/Map.png')}
               style={hallMapStyles.mapBackground}
               resizeMode="cover"
             >
