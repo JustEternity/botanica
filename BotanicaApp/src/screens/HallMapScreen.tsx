@@ -40,16 +40,32 @@ export default function HallMapScreen() {
   const [isUpdating, setIsUpdating] = useState(false);
 
   const openStartPickerAndroid = () => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
     // Сначала открываем выбор даты
     DateTimePickerAndroid.open({
       value: startTime,
       mode: 'date',
       display: 'default',
+      minimumDate: today, // Запрещаем выбирать прошедшие даты
       onChange: (event, selectedDate) => {
         if (selectedDate) {
+          // Определяем минимальное время для выбранной даты
+          let minTime = new Date(selectedDate);
+          const isToday = selectedDate.toDateString() === today.toDateString();
+
+          if (isToday) {
+            // Если выбрана сегодняшняя дата, минимальное время - текущее время + 15 минут
+            minTime = new Date(now.getTime() + 15 * 60000);
+          } else {
+            // Если выбрана будущая дата, минимальное время - 12:00
+            minTime.setHours(12, 0, 0, 0);
+          }
+
           // После выбора даты открываем выбор времени
           DateTimePickerAndroid.open({
-            value: startTime,
+            value: isToday ? (minTime > startTime ? minTime : startTime) : startTime,
             mode: 'time',
             display: 'default',
             onChange: (timeEvent, selectedTime) => {
@@ -60,6 +76,12 @@ export default function HallMapScreen() {
                 newDateTime.setHours(time.getHours(), time.getMinutes());
 
                 let newStartTime = enforce15MinuteIntervals(newDateTime);
+
+                // Проверяем, что выбранное время не в прошлом
+                if (newStartTime < minTime) {
+                  Alert.alert('Ошибка', 'Нельзя выбрать прошедшее время');
+                  return;
+                }
 
                 // Проверяем допустимость времени начала
                 if (!isValidStartTime(newStartTime)) {
@@ -81,16 +103,36 @@ export default function HallMapScreen() {
   };
 
   const openEndPickerAndroid = () => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Минимальная дата для окончания - дата начала
+    const minDate = new Date(startTime);
+    minDate.setHours(0, 0, 0, 0);
+
     // Сначала открываем выбор даты
     DateTimePickerAndroid.open({
       value: endTime,
       mode: 'date',
       display: 'default',
+      minimumDate: minDate, // Нельзя выбрать дату раньше даты начала
       onChange: (event, selectedDate) => {
         if (selectedDate) {
+          // Определяем минимальное время для выбранной даты
+          let minTime = new Date(selectedDate);
+          const isStartDate = selectedDate.toDateString() === minDate.toDateString();
+
+          if (isStartDate) {
+            // Если выбрана та же дата, что и начало, минимальное время - startTime + 1 час
+            minTime = new Date(startTime.getTime() + 60 * 60000);
+          } else {
+            // Если выбрана следующая дата, минимальное время - 00:00
+            minTime.setHours(0, 0, 0, 0);
+          }
+
           // После выбора даты открываем выбор времени
           DateTimePickerAndroid.open({
-            value: endTime,
+            value: isStartDate ? (minTime > endTime ? minTime : endTime) : endTime,
             mode: 'time',
             display: 'default',
             onChange: (timeEvent, selectedTime) => {
@@ -101,6 +143,12 @@ export default function HallMapScreen() {
                 newDateTime.setHours(time.getHours(), time.getMinutes());
 
                 let newEndTime = enforce15MinuteIntervals(newDateTime);
+
+                // Проверяем, что выбранное время не в прошлом относительно начала
+                if (newEndTime < minTime) {
+                  Alert.alert('Ошибка', 'Время окончания должно быть хотя бы на 1 час позже времени начала');
+                  return;
+                }
 
                 // Проверяем допустимость времени окончания
                 if (!isValidEndTime(newEndTime)) {
