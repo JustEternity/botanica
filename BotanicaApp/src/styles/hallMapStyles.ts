@@ -378,4 +378,9 @@ export const hallMapStyles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  expoPicker: {
+  width: '100%',
+  height: 200,
+  backgroundColor: 'white',
+},
 });
