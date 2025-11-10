@@ -17,7 +17,6 @@ import { Order, Table } from '../types';
 import { orderHistoryStyles } from '../styles/ordersHistoryStyles';
 import OrderContextMenu from '../components/OrderContextMenu';
 
-
 export default function OrderHistoryScreen({ navigation }: any) {
   const { user } = useAuth();
   const { refreshTables } = useTable();
@@ -32,7 +31,6 @@ export default function OrderHistoryScreen({ navigation }: any) {
 
   const tablesScrollRef = useRef<ScrollView>(null);
   const tablePositions = useRef<{ [key: string]: number }>({});
-
 
   // Загрузка всех данных
   const loadAllData = async () => {
@@ -67,7 +65,6 @@ export default function OrderHistoryScreen({ navigation }: any) {
           table_id: o.table_id,
           table_name: o.table_name
         })));
-
 
         const ordersResponse = await ApiService.getUserOrders(user.id);
         ordersData = ordersResponse.orders || [];
@@ -148,27 +145,27 @@ export default function OrderHistoryScreen({ navigation }: any) {
 
   // В useMemo для filteredOrders добавьте логи
   const filteredOrders = useMemo(() => {
-  console.log('🎯 Filtering orders - selectedTable:', selectedTable);
-  console.log('📋 Total orders:', allOrders.length);
-  
-  if (!selectedTable) {
-    console.log('✅ Showing ALL orders');
-    return allOrders;
-  }
-  
-  const filtered = allOrders.filter(order => {
-    // Приводим оба значения к строке для сравнения
-    const orderTableId = order.table_id?.toString();
-    const selectedTableId = selectedTable.toString();
-    const matches = orderTableId === selectedTableId;
+    console.log('🎯 Filtering orders - selectedTable:', selectedTable);
+    console.log('📋 Total orders:', allOrders.length);
     
-    console.log(`📝 Order ${order.id} - table_id: ${orderTableId}, selected: ${selectedTableId}, matches: ${matches}`);
-    return matches;
-  });
-  
-  console.log('🔍 Filtered orders count:', filtered.length);
-  return filtered;
-}, [allOrders, selectedTable]);
+    if (!selectedTable) {
+      console.log('✅ Showing ALL orders');
+      return allOrders;
+    }
+    
+    const filtered = allOrders.filter(order => {
+      // Приводим оба значения к строке для сравнения
+      const orderTableId = order.table_id?.toString();
+      const selectedTableId = selectedTable.toString();
+      const matches = orderTableId === selectedTableId;
+      
+      console.log(`📝 Order ${order.id} - table_id: ${orderTableId}, selected: ${selectedTableId}, matches: ${matches}`);
+      return matches;
+    });
+    
+    console.log('🔍 Filtered orders count:', filtered.length);
+    return filtered;
+  }, [allOrders, selectedTable]);
 
   // Сохранение позиций столиков для скролла
   const saveTablePosition = useCallback((tableId: string, x: number) => {
@@ -197,6 +194,12 @@ export default function OrderHistoryScreen({ navigation }: any) {
           break;
 
         case 'complete':
+          // Проверка прав для выполнения заказа
+          if (user?.role !== 'admin') {
+            Alert.alert('Ошибка', 'У вас нет прав для выполнения заказов');
+            return;
+          }
+
           if (order.status !== 'в работе') {
             Alert.alert('Ошибка', 'Можно выполнять только заказы в работе');
             return;
@@ -212,6 +215,12 @@ export default function OrderHistoryScreen({ navigation }: any) {
           break;
 
         case 'delete':
+          // Проверка прав для удаления заказа
+          if (user?.role !== 'admin') {
+            Alert.alert('Ошибка', 'У вас нет прав для удаления заказов');
+            return;
+          }
+
           Alert.alert(
             'Удаление заказа',
             'Вы уверены, что хотите удалить этот заказ?',
@@ -254,7 +263,27 @@ export default function OrderHistoryScreen({ navigation }: any) {
       setContextMenuVisible(false);
       setSelectedOrder(null);
     }
-  }, [refreshTables]);
+  }, [refreshTables, user]);
+
+  // Получение доступных действий для контекстного меню
+  const getAvailableActions = useCallback((order: Order) => {
+    const actions = [];
+    
+    if (user?.role === 'admin') {
+      // Для администратора доступны все действия в зависимости от статуса
+      if (order.status === 'в работе') {
+        actions.push('complete', 'cancel');
+      }
+      actions.push('delete');
+    } else {
+      // Для обычного пользователя доступна только отмена заказов в работе
+      if (order.status === 'в работе') {
+        actions.push('cancel');
+      }
+    }
+    
+    return actions;
+  }, [user]);
 
   // Форматирование даты
   const formatDate = (dateString: string) => {
@@ -285,64 +314,90 @@ export default function OrderHistoryScreen({ navigation }: any) {
   };
 
   // Рендер элемента заказа
-  const renderOrderItem = ({ item }: { item: Order }) => {
-    const statusInfo = getStatusInfo(item.status);
-    const totalAmount = typeof item.total_amount === 'number'
-      ? item.total_amount
-      : parseFloat(item.total_amount || '0');
+const renderOrderItem = ({ item }: { item: Order }) => {
+  const statusInfo = getStatusInfo(item.status);
+  const totalAmount = typeof item.total_amount === 'number'
+    ? item.total_amount
+    : parseFloat(item.total_amount || '0');
+  
+  // Проверяем, есть ли товары в заказе
+  const hasItems = item.items && item.items.length > 0;
+  const isReservationOnly = !hasItems;
 
-    return (
-      <TouchableOpacity
-        style={orderHistoryStyles.orderCard}
-        onPress={() => {
-          Alert.alert(
-            `Заказ #${item.id}`,
-            `Столик: ${item.table_name || 'Не указан'}\n` +
-            `Дата: ${formatDate(item.created_at)}\n` +
-            `Статус: ${statusInfo.text}\n` +
-            `Гости: ${item.guests_count || 'Не указано'}\n` +
-            `Общая сумма: ${totalAmount.toFixed(0)} руб.`
-          );
-        }}
-        onLongPress={() => {
-          setSelectedOrder(item);
-          setContextMenuVisible(true);
-        }}
-        activeOpacity={0.7}
-        delayLongPress={500}
-      >
-        <View style={orderHistoryStyles.orderHeader}>
-          <View>
-            <Text style={orderHistoryStyles.orderNumber}>
-              Заказ #{item.id}
-            </Text>
-            <Text style={orderHistoryStyles.orderDateTime}>
-              {formatDate(item.created_at)}
-            </Text>
-          </View>
-          <View style={[orderHistoryStyles.orderStatus, { backgroundColor: `${statusInfo.color}20` }]}>
-            <Text style={[orderHistoryStyles.statusText, { color: statusInfo.color }]}>
-              {statusInfo.text}
-            </Text>
-          </View>
+  return (
+    <TouchableOpacity
+      style={orderHistoryStyles.orderCard}
+      onPress={() => {
+        Alert.alert(
+          isReservationOnly ? `Бронирование #${item.id}` : `Заказ #${item.id}`,
+          `Столик: ${item.table_name || 'Не указан'}\n` +
+          `Дата: ${formatDate(item.created_at)}\n` +
+          `Статус: ${statusInfo.text}\n` +
+          `Гости: ${item.guests_count || 'Не указано'}\n` +
+          `Время: ${new Date(item.start_time!.toString()).toLocaleTimeString('ru-RU', { 
+            hour: '2-digit', minute: '2-digit' 
+          })} - ${new Date(item.end_time!.toString()).toLocaleTimeString('ru-RU', { 
+            hour: '2-digit', minute: '2-digit' 
+          })}\n` +
+          (isReservationOnly ? 'Только бронирование столика' : `Общая сумма: ${totalAmount.toFixed(0)} руб.`)
+        );
+      }}
+      onLongPress={() => {
+        setSelectedOrder(item);
+        setContextMenuVisible(true);
+      }}
+      activeOpacity={0.7}
+      delayLongPress={500}
+    >
+      {/* НОВЫЙ БЛОК: Информация о госте */}
+      {user?.role === 'admin' && (
+        <View style={orderHistoryStyles.guestInfo}>
+          <Text style={orderHistoryStyles.guestName}>{item.customer_name}</Text>
+          <Text style={orderHistoryStyles.guestPhone}>{item.customer_phone}</Text>
         </View>
-
-        <View style={orderHistoryStyles.tableInfo}>
-          <Text style={orderHistoryStyles.tableText}>
-            Столик: <Text style={orderHistoryStyles.tableNumber}>
-              {item.table_name || 'Не указан'}
-            </Text>
+      )}
+      
+      <View style={orderHistoryStyles.orderHeader}>
+        <View>
+          <Text style={orderHistoryStyles.orderNumber}>
+            {isReservationOnly ? `Бронирование #${item.id}` : `Заказ #${item.id}`}
           </Text>
-          {item.guests_count && (
-            <Text style={orderHistoryStyles.guestsText}>
-              Гости: {item.guests_count}
-            </Text>
-          )}
+          <Text style={orderHistoryStyles.orderDateTime}>
+            {formatDate(item.created_at)}
+          </Text>
         </View>
+        <View style={[orderHistoryStyles.orderStatus, { backgroundColor: `${statusInfo.color}20` }]}>
+          <Text style={[orderHistoryStyles.statusText, { color: statusInfo.color }]}>
+            {statusInfo.text}
+          </Text>
+        </View>
+      </View>
+      
+      <View style={orderHistoryStyles.tableInfo}>
+        <Text style={orderHistoryStyles.tableText}>
+          Столик: <Text style={orderHistoryStyles.tableNumber}>
+            {item.table_name || 'Не указан'}
+          </Text>
+        </Text>
+        {item.guests_count && (
+          <Text style={orderHistoryStyles.guestsText}>
+            Гости: {item.guests_count}
+          </Text>
+        )}
+        <Text style={orderHistoryStyles.orderDateTime}>
+          Время: {new Date(item.start_time!.toString()).toLocaleTimeString('ru-RU', { 
+            hour: '2-digit', minute: '2-digit' 
+          })} - {new Date(item.end_time!.toString()).toLocaleTimeString('ru-RU', { 
+            hour: '2-digit', minute: '2-digit' 
+          })}
+        </Text>
+      </View>
 
+      {/* Секция с товарами - показываем только если есть товары */}
+      {hasItems && (
         <View style={orderHistoryStyles.itemsSection}>
           <Text style={orderHistoryStyles.itemsTitle}>Заказанные блюда:</Text>
-          {item.items && item.items.map((orderItem, index) => (
+          {item.items.map((orderItem, index) => (
             <View key={index} style={orderHistoryStyles.itemRow}>
               <Text style={orderHistoryStyles.itemName}>
                 • {orderItem.name}
@@ -353,14 +408,29 @@ export default function OrderHistoryScreen({ navigation }: any) {
             </View>
           ))}
         </View>
+      )}
 
-        {item.notes && (
-          <View style={orderHistoryStyles.notesSection}>
-            <Text style={orderHistoryStyles.notesLabel}>Примечания:</Text>
-            <Text style={orderHistoryStyles.notesText}>{item.notes}</Text>
-          </View>
-        )}
+      {/* Секция "Только бронирование" - показываем если нет товаров */}
+      {isReservationOnly && (
+        <View style={orderHistoryStyles.itemsSection}>
+          <Text style={[orderHistoryStyles.itemsTitle, { fontStyle: 'italic', color: '#666' }]}>
+            Только бронирование столика
+          </Text>
+          <Text style={[orderHistoryStyles.itemName, { fontStyle: 'italic', color: '#666' }]}>
+            Без заказа еды и напитков
+          </Text>
+        </View>
+      )}
 
+      {item.notes && (
+        <View style={orderHistoryStyles.notesSection}>
+          <Text style={orderHistoryStyles.notesLabel}>Примечания:</Text>
+          <Text style={orderHistoryStyles.notesText}>{item.notes}</Text>
+        </View>
+      )}
+
+      {/* Общая сумма - показываем только если есть товары */}
+      {hasItems && totalAmount > 0 && (
         <View style={orderHistoryStyles.orderFooter}>
           <Text style={orderHistoryStyles.totalText}>
             Итого: <Text style={orderHistoryStyles.totalAmount}>
@@ -368,9 +438,10 @@ export default function OrderHistoryScreen({ navigation }: any) {
             </Text>
           </Text>
         </View>
-      </TouchableOpacity>
-    );
-  };
+      )}
+    </TouchableOpacity>
+  );
+};
 
   // Рендер фильтра столиков
   const renderTableFilter = () => {
@@ -547,6 +618,7 @@ export default function OrderHistoryScreen({ navigation }: any) {
           setSelectedOrder(null);
         }}
         onAction={handleContextMenuAction}
+        availableActions={selectedOrder ? getAvailableActions(selectedOrder) : []}
       />
     </View>
   );

@@ -17,7 +17,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Проверяем аутентификацию при загрузке приложения
   useEffect(() => {
     checkAuth();
   }, []);
@@ -29,12 +28,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const token = await ApiService.getAuthToken();
 
       if (currentUser && token) {
-        // Проверяем валидность токена путем запроса профиля
         try {
+          // Получаем актуальные данные профиля с сервера
           const profile = await ApiService.getProfile();
-          setUser(profile);
+          console.log('🔄 checkAuth: получен профиль с cloudinary_url:', profile.cloudinary_url);
+          setUser(profile); // profile уже является User
         } catch (error) {
-          // Токен невалиден, разлогиниваем
+          console.error('Ошибка загрузки профиля:', error);
           await ApiService.logout();
           setUser(null);
         }
@@ -52,8 +52,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (credentials: AuthCredentials): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const { user } = await ApiService.login(credentials);
-      setUser(user);
+      const loginResponse = await ApiService.login(credentials);
+      
+      // После успешного логина загружаем полный профиль с фото
+      const profile = await ApiService.getProfile();
+      console.log('🔄 login: получен профиль с cloudinary_url:', profile.cloudinary_url);
+      
+      setUser(profile); // profile уже является User
       return true;
     } catch (error) {
       console.error('Ошибка входа:', error);
@@ -66,8 +71,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (data: RegisterData): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const { user } = await ApiService.register(data);
-      setUser(user);
+      const registerResponse = await ApiService.register(data);
+      
+      // После успешной регистрации загружаем полный профиль с фото
+      const profile = await ApiService.getProfile();
+      console.log('🔄 register: получен профиль с cloudinary_url:', profile.cloudinary_url);
+      
+      setUser(profile); // profile уже является User
       return true;
     } catch (error) {
       console.error('Ошибка регистрации:', error);
@@ -90,13 +100,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      login, 
-      register, 
-      logout, 
+    <AuthContext.Provider value={{
+      user,
+      login,
+      register,
+      logout,
       isLoading,
-      checkAuth 
+      checkAuth
     }}>
       {children}
     </AuthContext.Provider>

@@ -25,7 +25,6 @@ export type MenuSection = {
   is_active?: boolean;
 };
 
-
 export interface Table {
   id: string;
   number: number;
@@ -38,7 +37,6 @@ export interface Table {
   maxPeople?: number;
 }
 
-
 export type MenuModalData = {
   item: MenuItem;
   initialQuantity: number;
@@ -50,6 +48,8 @@ export type User = {
   phone: string;
   role: 'customer' | 'admin';
   created_at?: string;
+  cloudinary_public_id?: string;
+  cloudinary_url?: string;
 };
 
 export type AuthCredentials = {
@@ -107,16 +107,50 @@ export interface Order {
   items: OrderItem[];
 }
 
+// Обновленный интерфейс для создания заказа/бронирования
 export interface CreateOrderData {
   table_id: string;
   start_time: string;
   end_time: string;
-  guests_count: number;
-  items: Array<{
+  guests_count?: number;
+  items?: Array<{
     menu_item_id: string;
     quantity: number;
   }>;
   notes?: string;
+}
+
+// Новый интерфейс для ответа при создании заказа/бронирования
+export interface CreateOrderResponse {
+  success: boolean;
+  order?: Order; // Заказ создается только если есть items
+  reservation: {
+    id: string;
+    table_id: string;
+    start_time: string;
+    end_time: string;
+    guests_count: number;
+  };
+  message?: string;
+}
+
+// Интерфейс для бронирования
+export interface Reservation {
+  id: string;
+  table_id: string;
+  start_time: string;
+  end_time: string;
+  guests_count: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  
+  // Дополнительные поля из JOIN запросов
+  table_name?: string;
+  table_description?: string;
+  table_capacity?: number;
+  customer_name?: string;
+  customer_phone?: string;
 }
 
 export interface OrdersResponse {
@@ -149,9 +183,10 @@ export interface TablesResponse {
   };
 }
 
-export interface OrdersResponse {
+// Ответ для получения бронирований
+export interface ReservationsResponse {
   success: boolean;
-  orders: Order[];
+  reservations: Reservation[];
   pagination?: {
     page: number;
     limit: number;
@@ -159,13 +194,19 @@ export interface OrdersResponse {
   };
 }
 
-export interface TableOrdersResponse {
-  success: boolean;
-  orders: Order[];
-  table: Table;
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-  };
+// Типы для работы с бронированиями
+export interface CreateReservationData {
+  table_id: string;
+  start_time: string;
+  end_time: string;
+  guests_count?: number;
+  notes?: string;
+}
+
+export interface UpdateReservationData {
+  start_time?: string;
+  end_time?: string;
+  guests_count?: number;
+  notes?: string;
+  is_active?: boolean;
 }

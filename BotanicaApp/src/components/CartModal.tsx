@@ -116,10 +116,10 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
             return;
         }
 
-        if (menuItems.length === 0) {
-            Alert.alert('Ошибка', 'Добавьте товары в заказ');
-            return;
-        }
+        // if (menuItems.length === 0) {
+        //     Alert.alert('Ошибка', 'Добавьте товары в заказ');
+        //     return;
+        // }
 
         setIsSubmitting(true);
 
@@ -343,7 +343,7 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
                         </View>
 
                         {/* Итоговая сумма */}
-                        {!isEmpty() && (
+                        {(!isEmpty() && menuItems.length > 0) && (
                             <View style={styles.totalSection}>
                                 <Text style={styles.totalLabel}>Итого:</Text>
                                 <Text style={styles.totalPrice}>{totalPrice} ₽</Text>
@@ -360,7 +360,7 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
                                     isSubmitting && styles.orderButtonDisabled
                                 ]}
                                 onPress={handleCreateOrder}
-                                disabled={isSubmitting || !tableReservation || menuItems.length === 0}
+                                disabled={isSubmitting || !tableReservation}
                             >
                                 <Text style={styles.orderButtonText}>
                                     {isSubmitting ? 'Оформление...' : 'Оформить заказ'}

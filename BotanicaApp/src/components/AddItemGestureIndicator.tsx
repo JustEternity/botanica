@@ -40,7 +40,9 @@ export default function AddItemGestureIndicator({
 
       // Проверяем завершение жеста
       if (progress >= 1) {
-        onComplete();
+        setTimeout(() => {
+          onComplete();
+        }, 300);
       }
     } else {
       // Анимация исчезновения
@@ -60,13 +62,14 @@ export default function AddItemGestureIndicator({
 
   if (!visible && progress === 0) return null;
 
-  const radius = 60;
-  const strokeWidth = 6;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference * (1 - progress);
+  const radius = 40;
+  const strokeWidth = 4;
+
+  // Вычисляем угол для прогресс-круга (от 0 до 360 градусов)
+  const progressAngle = progress * 360;
 
   return (
-    <View style={styles.overlay}>
+    <View style={styles.overlay} pointerEvents="none">
       <Animated.View
         style={[
           styles.container,
@@ -82,9 +85,9 @@ export default function AddItemGestureIndicator({
             style={[
               styles.circle,
               {
-                width: radius * 2 + strokeWidth,
-                height: radius * 2 + strokeWidth,
-                borderRadius: radius + strokeWidth / 2,
+                width: radius * 2,
+                height: radius * 2,
+                borderRadius: radius,
                 borderWidth: strokeWidth,
                 borderColor: 'rgba(46, 125, 50, 0.2)',
               },
@@ -92,28 +95,37 @@ export default function AddItemGestureIndicator({
           />
           
           {/* Прогресс круг */}
-          <Animated.View
+          <View
             style={[
               styles.progressCircle,
               {
-                width: radius * 2 + strokeWidth,
-                height: radius * 2 + strokeWidth,
-                borderRadius: radius + strokeWidth / 2,
+                width: radius * 2,
+                height: radius * 2,
+                borderRadius: radius,
                 borderWidth: strokeWidth,
                 borderColor: '#2E7D32',
                 borderLeftColor: progress > 0 ? '#2E7D32' : 'transparent',
-                borderBottomColor: progress > 0 ? '#2E7D32' : 'transparent',
-                transform: [{ rotate: '-45deg' }],
+                borderBottomColor: progress > 0.25 ? '#2E7D32' : 'transparent',
+                borderRightColor: progress > 0.5 ? '#2E7D32' : 'transparent',
+                borderTopColor: progress > 0.75 ? '#2E7D32' : 'transparent',
+                transform: [{ rotate: `${-45 + progressAngle}deg` }],
               },
             ]}
           />
           
           {/* Центральное содержимое */}
           <View style={styles.content}>
-            <Text style={styles.icon}>➕</Text>
-            <Text style={styles.text}>Добавить товар</Text>
+            <Text style={styles.icon}>
+              {progress >= 1 ? '✅' : '➕'}
+            </Text>
+            <Text style={styles.text}>
+              {progress >= 1 ? 'Готово!' : 'Добавить товар'}
+            </Text>
             <Text style={styles.hint}>
               {progress >= 1 ? 'Отпустите' : 'Удерживайте...'}
+            </Text>
+            <Text style={styles.progressText}>
+              {Math.round(progress * 100)}%
             </Text>
           </View>
         </View>
@@ -127,49 +139,60 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     zIndex: 1000,
   },
   container: {
     backgroundColor: 'white',
     borderRadius: 20,
-    padding: 30,
+    padding: 25,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 10,
+    minWidth: 200,
   },
   circleContainer: {
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    width: 100,
+    height: 100,
+    marginBottom: 10,
   },
   circle: {
     position: 'absolute',
+    borderStyle: 'solid',
   },
   progressCircle: {
     position: 'absolute',
+    borderStyle: 'solid',
   },
   content: {
     alignItems: 'center',
-    padding: 20,
   },
   icon: {
-    fontSize: 32,
-    marginBottom: 12,
+    fontSize: 28,
+    marginBottom: 8,
   },
   text: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#2E7D32',
-    marginBottom: 8,
+    marginBottom: 4,
     textAlign: 'center',
   },
   hint: {
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+    marginBottom: 6,
+  },
+  progressText: {
+    fontSize: 12,
+    color: '#2E7D32',
+    fontWeight: 'bold',
   },
 });

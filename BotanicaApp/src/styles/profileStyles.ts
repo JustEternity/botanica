@@ -7,6 +7,22 @@ export const profileStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  photoLoadingOverlay: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(255, 255, 255, 0.8)',
+  justifyContent: 'center',
+  alignItems: 'center',
+  borderRadius: 60,
+},
+photoLoadingText: {
+  marginTop: 8,
+  fontSize: 12,
+  color: '#2E7D32',
+},
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -32,6 +48,38 @@ export const profileStyles = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#2E7D32',
   },
+  
+  // Добавляем новые стили для загрузки фото
+  photoLoadingContainer: {
+    width: 190,
+    height: 190,
+    borderRadius: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderWidth: 4,
+    borderColor: '#2E7D32',
+  },
+  photoMainContainer: {
+    position: 'relative',
+  },
+  photoWithOverlay: {
+    position: 'relative',
+  },
+  imageLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 245, 245, 0.8)',
+    borderRadius: 100,
+    borderWidth: 4,
+    borderColor: '#2E7D32',
+  },
+  
   fieldsContainer: {
     width: '100%',
     marginBottom: 40,
@@ -92,16 +140,21 @@ export const profileStyles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
     marginTop: 40,
+    width: '100%', // Добавляем полную ширину
   },
   loginTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#2E7D32',
     marginBottom: 8,
+    textAlign: 'center', // Добавляем выравнивание по центру
+    width: '100%', // Занимает всю ширину
   },
   loginSubtitle: {
     fontSize: 16,
     color: '#666',
+    textAlign: 'center', // Добавляем выравнивание по центру
+    width: '100%', // Занимает всю ширину
   },
   loginForm: {
     width: '100%',
@@ -130,35 +183,62 @@ export const profileStyles = StyleSheet.create({
   registerLinkContainer: {
     marginTop: 25,
     alignItems: 'center',
-    width: '100%', // Добавляем полную ширину
+    width: '100%',
   },
   registerText: {
     fontSize: 16,
     color: '#666',
-    textAlign: 'center', // Центрируем текст
-    width: '100%', // Занимает всю ширину контейнера
+    textAlign: 'center',
+    width: '100%',
   },
   registerLink: {
     color: '#2E7D32',
     fontWeight: 'bold',
     textDecorationLine: 'underline',
   },
+  editPhotoIndicator: {
+    position: 'absolute',
+    bottom: 5,
+    right: 5,
+    backgroundColor: '#2E7D32',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  editPhotoText: {
+    fontSize: 14,
+    color: 'white',
+  },
 
   // Стили для информации пользователя
   userInfo: {
     alignItems: 'center',
     marginBottom: 20,
+    width: '100%', // Добавляем полную ширину
   },
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 8,
+    textAlign: 'center', // Выравнивание по центру
+    width: '100%', // Занимает всю ширину
   },
   userPhone: {
     fontSize: 18,
     color: '#666',
     marginBottom: 12,
+    textAlign: 'center', // Выравнивание по центру
+    width: '100%', // Занимает всю ширину
   },
   adminBadge: {
     fontSize: 16,
@@ -169,5 +249,9 @@ export const profileStyles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 12,
     overflow: 'hidden',
+    textAlign: 'center', // Выравнивание по центру
   },
+  // Добавьте эти стили в profileStyles
+
+
 });

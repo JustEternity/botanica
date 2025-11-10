@@ -112,6 +112,25 @@ export const orderHistoryStyles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2E7D32',
   },
+    guestInfo: {
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2E7D32',
+  },
+  guestName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  guestPhone: {
+    fontSize: 14,
+    color: '#2E7D32',
+    fontWeight: '500',
+  },
   itemsSection: {
     marginBottom: 12,
   },

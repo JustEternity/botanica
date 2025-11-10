@@ -18,13 +18,15 @@ interface OrderContextMenuProps {
   order: Order | null;
   onClose: () => void;
   onAction: (action: string, order: Order) => void;
+  availableActions: string[];
 }
 
 export default function OrderContextMenu({ 
   visible, 
   order, 
   onClose, 
-  onAction 
+  onAction,
+  availableActions 
 }: OrderContextMenuProps) {
   const handleAction = (action: string) => {
     if (!order) return;
@@ -35,61 +37,69 @@ export default function OrderContextMenu({
     onClose();
   };
 
+  // Функция для получения метки действия
+  const getActionLabel = (action: string) => {
+    switch (action) {
+      case 'complete':
+        return 'Выполнить заказ';
+      case 'cancel':
+        return 'Отменить заказ';
+      case 'delete':
+        return 'Удалить заказ';
+      default:
+        return action;
+    }
+  };
+
+  // Функция для получения иконки действия
+  const getActionIcon = (action: string) => {
+    switch (action) {
+      case 'complete':
+        return '✅';
+      case 'cancel':
+        return '❌';
+      case 'delete':
+        return '🗑️';
+      default:
+        return '⚙️';
+    }
+  };
+
   // iOS Action Sheet
   if (Platform.OS === 'ios' && visible && order) {
     const options = [];
     const destructiveButtonIndex: number[] = [];
-    let cancelButtonIndex = 0;
-
-    // Доступные действия в зависимости от статуса
-    if (order.status === 'в работе') {
-      options.push('Выполнить заказ');
-      options.push('Отменить заказ');
-      destructiveButtonIndex.push(1); // Отмена - деструктивное действие
-      options.push('Удалить заказ');
-      destructiveButtonIndex.push(2); // Удаление - деструктивное действие
-      cancelButtonIndex = 3;
-    } else {
-      // Для выполненных или отмененных заказов
-      options.push('Удалить заказ');
-      destructiveButtonIndex.push(0); // Удаление - деструктивное действие
-      cancelButtonIndex = 1;
-    }
     
+    // Добавляем доступные действия
+    availableActions.forEach((action, index) => {
+      options.push(getActionLabel(action));
+      if (action === 'cancel' || action === 'delete') {
+        destructiveButtonIndex.push(index);
+      }
+    });
+    
+    // Добавляем кнопку отмены
+    const cancelButtonIndex = options.length;
     options.push('Отмена');
 
     ActionSheetIOS.showActionSheetWithOptions(
       {
         options,
         cancelButtonIndex,
-        destructiveButtonIndex,
+        destructiveButtonIndex: destructiveButtonIndex.length > 0 ? destructiveButtonIndex : undefined,
         title: `Заказ #${order.id}`,
         message: `Статус: ${order.status}`,
       },
       (buttonIndex) => {
-        switch (buttonIndex) {
-          case 0: // Первая кнопка
-            if (order.status === 'в работе') {
-              handleAction('complete');
-            } else {
-              handleAction('delete');
-            }
-            break;
-          case 1: // Вторая кнопка
-            if (order.status === 'в работе') {
-              handleAction('cancel');
-            } else {
-              // Для неактивных заказов - отмена
-              onClose();
-            }
-            break;
-          case 2: // Третья кнопка (только для заказов в работе)
-            if (order.status === 'в работе') {
-              handleAction('delete');
-            }
-            break;
-          default:
-            onClose();
+        if (buttonIndex === cancelButtonIndex) {
+          onClose();
+          return;
+        }
+
+        // Если нажата одна из action кнопок
+        if (buttonIndex < availableActions.length) {
+          const action = availableActions[buttonIndex];
+          handleAction(action);
         }
       }
     );
@@ -120,41 +130,27 @@ export default function OrderContextMenu({
               <Text style={styles.subtitle}>Выберите действие</Text>
             </View>
 
-            {/* Действия в зависимости от статуса */}
-            {order.status === 'в работе' && (
-              <>
-                <TouchableOpacity
-                  style={styles.menuButton}
-                  onPress={() => handleAction('complete')}
-                >
-                  <Text style={styles.menuButtonText}>
-                    ✅ Выполнить заказ
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.menuButton, styles.destructiveButton]}
-                  onPress={() => handleAction('cancel')}
-                >
-                  <Text style={[styles.menuButtonText, styles.destructiveText]}>
-                    ❌ Отменить заказ
-                  </Text>
-                </TouchableOpacity>
-              </>
-            )}
-
-            {/* Удаление заказа для всех статусов */}
-            <TouchableOpacity
-              style={[styles.menuButton, styles.destructiveButton]}
-              onPress={() => handleAction('delete')}
-            >
-              <Text style={[styles.menuButtonText, styles.destructiveText]}>
-                🗑️ Удалить заказ
-              </Text>
-            </TouchableOpacity>
+            {/* Доступные действия */}
+            {availableActions.map((action) => (
+              <TouchableOpacity
+                key={action}
+                style={[
+                  styles.menuButton,
+                  (action === 'cancel' || action === 'delete') && styles.destructiveButton
+                ]}
+                onPress={() => handleAction(action)}
+              >
+                <Text style={[
+                  styles.menuButtonText,
+                  (action === 'cancel' || action === 'delete') && styles.destructiveText
+                ]}>
+                  {getActionIcon(action)} {getActionLabel(action)}
+                </Text>
+              </TouchableOpacity>
+            ))}
 
             {/* Разделитель */}
-            <View style={styles.separator} />
+            {availableActions.length > 0 && <View style={styles.separator} />}
 
             {/* Кнопка отмены */}
             <TouchableOpacity

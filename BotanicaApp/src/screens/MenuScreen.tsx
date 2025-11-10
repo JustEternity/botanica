@@ -15,6 +15,9 @@ import {
   Dimensions,
   Platform,
   RefreshControl,
+  Animated,
+  PanResponder,
+  Easing,
 } from 'react-native';
 import { useTable } from '../contexts/TableContext';
 import { MenuSection, MenuItem, MenuCategory, ContextMenuAction } from '../types';
@@ -30,9 +33,14 @@ import EditMenuItemModal from '../components/EditMenuItemModal';
 import FloatingCartButton from '../components/FloatingCartButton';
 import CartModal from '../components/CartModal';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Константы
+// Константы для Pull-to-Add
+const PULL_THRESHOLD = 175;
+const HOLD_DURATION = 1000;
+const MAX_PULL_DISTANCE = 500;
+const HOLD_PROGRESS_THRESHOLD = 0.5;
+
 const LOADING_PHRASES = [
   "Затягиваемся...",
   "Забиваем кальян...", 
@@ -41,6 +49,102 @@ const LOADING_PHRASES = [
   "Настраиваем атмосферу...",
   "Готовим вкусы..."
 ];
+
+const logger = {
+  info: (message: string, data?: any) => {
+    console.log(`ℹ️ [MenuScreen] ${message}`, data || '');
+  },
+  warn: (message: string, data?: any) => {
+    console.warn(`⚠️ [MenuScreen] ${message}`, data || '');
+  },
+  error: (message: string, data?: any) => {
+    console.error(`❌ [MenuScreen] ${message}`, data || '');
+  },
+  debug: (message: string, data?: any) => {
+    console.debug(`🔍 [MenuScreen] ${message}`, data || '');
+  }
+};
+
+// Компонент индикатора Pull-to-Add
+const PullToAddIndicator: React.FC<{
+  progress: number;
+  isActive: boolean;
+  isHolding: boolean;
+  holdProgress: number;
+}> = ({ progress, isActive, isHolding, holdProgress }) => {
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const translateYAnim = useRef(new Animated.Value(-20)).current;
+
+  useEffect(() => {
+    if (progress > 0) {
+      Animated.parallel([
+        Animated.timing(opacityAnim, {
+          toValue: Math.min(progress * 1.5, 1),
+          duration: 150,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateYAnim, {
+          toValue: 0,
+          duration: 150,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        })
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(opacityAnim, {
+          toValue: 0,
+          duration: 200,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateYAnim, {
+          toValue: -20,
+          duration: 200,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: true,
+        })
+      ]).start();
+    }
+  }, [progress, opacityAnim, translateYAnim]);
+
+  return (
+    <View style={styles.pullIndicatorContainer}>
+      <Animated.View 
+        style={[
+          styles.pullIndicator,
+          {
+            opacity: opacityAnim,
+            transform: [{ translateY: translateYAnim }],
+          },
+        ]}
+      >
+        <View style={styles.indicatorContent}>
+          {isHolding ? (
+            <View style={styles.holdProgressContainer}>
+              <View style={styles.holdProgressBackground}>
+                <View 
+                  style={[
+                    styles.holdProgressFill,
+                    { width: `${holdProgress * 100}%` }
+                  ]} 
+                />
+              </View>
+              <Text style={styles.holdText}>
+                Удерживайте... {Math.round(holdProgress * 100)}%
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.pullText}>
+              {progress > 0.5 ? "Потяните сильнее..." : "Потяните для добавления товара"}
+            </Text>
+          )}
+        </View>
+      </Animated.View>
+    </View>
+  );
+};
 
 // Компонент элемента меню
 const MenuItemComponent: React.FC<{
@@ -81,6 +185,8 @@ const MenuItemComponent: React.FC<{
     onLongPress(item);
   }, [item, onLongPress]);
 
+  const isAdmin = user?.role === 'admin';
+
   return (
     <View style={menuStyles.menuItemContainer}>
       <TouchableOpacity 
@@ -90,21 +196,19 @@ const MenuItemComponent: React.FC<{
         activeOpacity={0.7}
         delayLongPress={500}
       >
-        {user?.role === 'admin' && item.is_available === false && (
+        {isAdmin && item.is_available === false && (
           <View style={styles.hiddenIndicator}>
             <Text style={styles.hiddenIndicatorText}>Скрыто</Text>
           </View>
         )}
 
         <View style={menuStyles.itemImageContainer}>
-          {/* Всегда показываем плейсхолдер */}
           <Image
             source={require('../../assets/botanicaplaceholder.jpg')}
             style={menuStyles.itemImage}
             resizeMode="cover"
           />
           
-          {/* Реальное изображение поверх плейсхолдера */}
           {!imageError && (
             <Image
               source={{ uri: optimizedImageUrl }}
@@ -149,6 +253,29 @@ export default function MenuScreen() {
   const { addMenuItem } = useCart();
   const { refreshTables } = useTable();
   
+  const isAdmin = user?.role === 'admin';
+  
+  // Refs для актуального значения isAdmin
+  const isAdminRef = useRef(isAdmin);
+  
+  // Анимированные значения для Pull-to-Add
+  const pullProgressRef = useRef(new Animated.Value(0)).current;
+
+  // Обновляем ref при изменении isAdmin
+  useEffect(() => {
+    isAdminRef.current = isAdmin;
+  }, [isAdmin]);
+
+  // Состояния Pull-to-Add (только для админов)
+  const [pullState, setPullState] = useState({
+    isPulling: false,
+    pullDistance: 0,
+    isHoldActive: false,
+    holdProgress: 0,
+    isAdding: false,
+  });
+
+  // Основные состояния
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [isScrolling, setIsScrolling] = useState(false);
   const [menuData, setMenuData] = useState<MenuSection[]>([]);
@@ -156,8 +283,6 @@ export default function MenuScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loadingPhrase, setLoadingPhrase] = useState(LOADING_PHRASES[0]);
   const [isDataReady, setIsDataReady] = useState(false);
-  
-  // Остальные состояния
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [initialQuantity, setInitialQuantity] = useState(0);
@@ -166,7 +291,6 @@ export default function MenuScreen() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [showAddButton, setShowAddButton] = useState(false);
   const [cartModalVisible, setCartModalVisible] = useState(false);
 
   const categoriesRef = useRef<FlatList>(null);
@@ -174,15 +298,26 @@ export default function MenuScreen() {
   const categoryPositions = useRef<{[key: string]: number}>({});
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const loadingPhraseRef = useRef<NodeJS.Timeout | null>(null);
-  const addButtonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Refs для Pull-to-Add
+  const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isAtTopRef = useRef(true);
+  const lastScrollYRef = useRef(0);
+  const isHoldActiveRef = useRef(false);
+  const holdProgressRef = useRef(0);
+  const pullDistanceRef = useRef(0); // Добавляем ref для отслеживания текущего расстояния
+
+  // Расчет прогресса Pull-to-Add
+  const pullProgress = useMemo(() => {
+    return Math.min(pullState.pullDistance / PULL_THRESHOLD, 1);
+  }, [pullState.pullDistance]);
 
   const loadMenuData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      console.log('🔄 Начинаем загрузку меню...');
       
-      const includeHidden = user?.role === 'admin';
+      const includeHidden = isAdmin;
       const data = await ApiService.getMenu(includeHidden);
       setMenuData(data);
       
@@ -191,26 +326,237 @@ export default function MenuScreen() {
         setIsDataReady(true);
       }
       
-      console.log('✅ Меню успешно загружено в состояние');
     } catch (err) {
       const errorMessage = 'Не удалось загрузить меню. Проверьте подключение к интернету.';
       setError(errorMessage);
-      console.error('❌ Ошибка загрузки меню:', err);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [isAdmin]);
+
+    const clearHoldTimer = useCallback(() => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    isHoldActiveRef.current = false;
+    holdProgressRef.current = 0;
+    
+    setPullState(prev => ({
+      ...prev, 
+      isHoldActive: false, 
+      holdProgress: 0
+    }));
+  }, []);
+  
+  // Функция обновления данных для всех пользователей
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    
+    // Сбрасываем состояние Pull-to-Add перед обновлением
+    if (isAdminRef.current) {
+      clearHoldTimer();
+      isHoldActiveRef.current = false;
+      holdProgressRef.current = 0;
+      pullDistanceRef.current = 0;
+      setPullState({
+        isPulling: false,
+        pullDistance: 0,
+        isHoldActive: false,
+        holdProgress: 0,
+        isAdding: false,
+      });
+    }
+    
+    loadMenuData().finally(() => {
+      setRefreshing(false);
+    });
+  }, [loadMenuData, clearHoldTimer]);
+
+  // Функция очистки таймера удержания
+
+
+  // Функция сброса Pull-to-Add состояния
+  const handlePullRelease = useCallback(() => {
+    if (!isAdminRef.current) return;
+    
+    const currentHoldProgress = holdProgressRef.current;
+    
+    clearHoldTimer();
+
+    // Анимируем сброс прогресса
+    Animated.timing(pullProgressRef, {
+      toValue: 0,
+      duration: 300,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: false,
+    }).start(() => {
+      setPullState({
+        isPulling: false,
+        pullDistance: 0,
+        isHoldActive: false,
+        holdProgress: 0,
+        isAdding: false,
+      });
+      isHoldActiveRef.current = false;
+      pullDistanceRef.current = 0;
+      
+      if (currentHoldProgress >= HOLD_PROGRESS_THRESHOLD && currentHoldProgress < 1) {
+        onRefresh();
+      }
+    });
+  }, [clearHoldTimer, onRefresh]);
+
+  // Функция завершения Pull-to-Add
+  const completePullToAdd = useCallback(() => {
+    if (!isAdminRef.current) return;
+    
+    setPullState(prev => ({ ...prev, isAdding: true }));
+    
+    // Анимируем сброс прогресса перед открытием модального окна
+    Animated.timing(pullProgressRef, {
+      toValue: 0,
+      duration: 300,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: false,
+    }).start(() => {
+      setEditingItem(null);
+      setEditModalVisible(true);
+      
+      // Полный сброс состояния после анимации
+      setPullState({
+        isPulling: false,
+        pullDistance: 0,
+        isHoldActive: false,
+        holdProgress: 0,
+        isAdding: false,
+      });
+      isHoldActiveRef.current = false;
+      pullDistanceRef.current = 0;
+    });
+  }, []);
+
+  // Функция запуска таймера удержания
+  const startHoldTimer = useCallback(() => {
+    if (!isAdminRef.current || isHoldActiveRef.current) return;
+
+    isHoldActiveRef.current = true;
+    setPullState(prev => ({ ...prev, isHoldActive: true, holdProgress: 0 }));
+    holdProgressRef.current = 0;
+    
+    const startTime = Date.now();
+    
+    const updateProgress = () => {
+      // Проверяем, что все еще вверху, удержание активно и расстояние выше порога
+      if (!isAtTopRef.current || !isHoldActiveRef.current || pullDistanceRef.current < PULL_THRESHOLD) {
+        clearHoldTimer();
+        setPullState(prev => ({ 
+          ...prev, 
+          isHoldActive: false, 
+          holdProgress: 0
+        }));
+        return;
+      }
+
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / HOLD_DURATION, 1);
+      
+      setPullState(prev => ({ ...prev, holdProgress: progress }));
+      holdProgressRef.current = progress;
+
+      if (progress < 1) {
+        holdTimerRef.current = setTimeout(updateProgress, 50);
+      } else {
+        completePullToAdd();
+      }
+    };
+
+    holdTimerRef.current = setTimeout(updateProgress, 50);
+  }, [completePullToAdd, clearHoldTimer]);
+
+  // Инициализация PanResponder для жестов (только для админов)
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => isAdminRef.current,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        if (!isAdminRef.current) return false;
+        return isAtTopRef.current && gestureState.dy > 0;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const currentIsAdmin = isAdminRef.current;
+        
+        if (!currentIsAdmin || !isAtTopRef.current || pullState.isAdding) {
+          return;
+        }
+
+        const pullDistance = Math.min(gestureState.dy, MAX_PULL_DISTANCE);
+        pullDistanceRef.current = pullDistance; // Сохраняем в ref
+        
+        setPullState(prev => ({
+          ...prev,
+          isPulling: true,
+          pullDistance,
+        }));
+
+        // Анимируем только прогресс (без трансформации контента)
+        Animated.timing(pullProgressRef, {
+          toValue: Math.min(pullDistance / PULL_THRESHOLD, 1),
+          duration: 50,
+          useNativeDriver: false,
+        }).start();
+
+        // Логика управления таймером удержания
+        if (pullDistance >= PULL_THRESHOLD) {
+          if (!isHoldActiveRef.current) {
+            // Запускаем таймер только если он еще не активен
+            startHoldTimer();
+          }
+          // Если таймер уже активен, просто продолжаем - он сам обновит прогресс
+        } else {
+          // Если расстояние ниже порога - отменяем таймер удержания
+          if (isHoldActiveRef.current) {
+            clearHoldTimer();
+          }
+        }
+      },
+      onPanResponderRelease: () => {
+        if (!isAdminRef.current) return;
+        handlePullRelease();
+      },
+      onPanResponderTerminate: () => {
+        if (!isAdminRef.current) return;
+        handlePullRelease();
+      },
+    })
+  ).current;
 
   useEffect(() => {
     loadMenuData();
   }, [loadMenuData]);
 
   // Обработчик скролла
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (isScrolling || !menuData.length || !isDataReady) return;
+  const TOP_BUFFER = 10;
 
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const scrollY = event.nativeEvent.contentOffset.y;
     
+    isAtTopRef.current = scrollY <= TOP_BUFFER;
+    lastScrollYRef.current = scrollY;
+
+    // Логика отмены Pull-to-Add только для админов
+    if (isAdminRef.current) {
+      if (!isAtTopRef.current && (pullState.isPulling || pullState.isHoldActive)) {
+        handlePullRelease();
+      }
+
+      if (scrollY < lastScrollYRef.current && isHoldActiveRef.current) {
+        handlePullRelease();
+      }
+    }
+
+    // Логика скролла категорий
+    if (isScrolling || !menuData.length || !isDataReady) return;
+
     let newSelectedCategory = selectedCategory;
     let foundInViewport = false;
 
@@ -256,31 +602,36 @@ export default function MenuScreen() {
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
     }
-  }, [isScrolling, selectedCategory, menuData, isDataReady]);
+  }, [isScrolling, selectedCategory, menuData, isDataReady, pullState.isPulling, pullState.isHoldActive, handlePullRelease]);
 
-  // Функции для обновления
-  const onRefresh = useCallback(() => {
-    if (user?.role !== 'admin') {
-      setRefreshing(false);
-      return;
+  // Обработчики скролла
+  const handleScrollBeginDrag = useCallback(() => {
+    setIsScrolling(true);
+    
+    if (isAdminRef.current && isHoldActiveRef.current) {
+      handlePullRelease();
     }
+  }, [handlePullRelease]);
 
-    setRefreshing(true);
-    addButtonTimeoutRef.current = setTimeout(() => {
-      setShowAddButton(true);
-      setRefreshing(false);
-      
-      setTimeout(() => {
-        setShowAddButton(false);
-      }, 5000);
-    }, 1500);
-  }, [user]);
+  const handleScrollEndDrag = useCallback(() => {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsScrolling(false);
+    }, 150);
+  }, []);
 
-  const openAddModal = () => {
-    setEditingItem(null);
-    setEditModalVisible(true);
-    setShowAddButton(false);
-  };
+  const handleMomentumScrollBegin = useCallback(() => {
+    if (isAdminRef.current && isHoldActiveRef.current) {
+      handlePullRelease();
+    }
+  }, [handlePullRelease]);
+
+  const handleMomentumScrollEnd = useCallback(() => {
+    setIsScrolling(false);
+  }, []);
 
   const openModalWithPlus = useCallback((item: MenuItem) => {
     setSelectedItem(item);
@@ -294,7 +645,6 @@ export default function MenuScreen() {
     setModalVisible(true);
   }, []);
 
-  // Обработчик добавления в корзину
   const handleAddToCart = useCallback((item: MenuItem, quantity: number) => {
     addMenuItem(item, quantity);
     Alert.alert(
@@ -308,21 +658,20 @@ export default function MenuScreen() {
   }, []);
 
   const handleOrderSuccess = useCallback(() => {
-    // Обновляем столики через контекст
     refreshTables();
-    
   }, [refreshTables]);
 
   const handleLongPress = useCallback((item: MenuItem) => {
-    if (user?.role === 'admin') {
+    if (isAdmin) {
       setSelectedContextItem({...item});
       
       if (Platform.OS === 'ios') {
+        // iOS контекстное меню
       } else {
         setContextMenuVisible(true);
       }
     }
-  }, [user]);
+  }, [isAdmin]);
 
   const handleContextMenuAction = useCallback(async (action: ContextMenuAction, item: MenuItem) => {
     if (Platform.OS === 'ios') {
@@ -372,7 +721,7 @@ export default function MenuScreen() {
     } catch (error) {
       Alert.alert('Ошибка', 'Не удалось сохранить товар');
     }
-  }, [editingItem, loadMenuData]);
+  }, [loadMenuData]);
 
   const handleCloseAndroidMenu = useCallback(() => {
     setContextMenuVisible(false);
@@ -403,7 +752,9 @@ export default function MenuScreen() {
   }));
 
   const scrollToCategory = useCallback((categoryId: string) => {
-    if (isScrolling || !menuData.length || !isDataReady) return;
+    if (isScrolling || !menuData.length || !isDataReady) {
+      return;
+    }
 
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelectedCategory(categoryId);
@@ -434,24 +785,6 @@ export default function MenuScreen() {
 
   const saveCategoryPosition = useCallback((categoryId: string, y: number) => {
     categoryPositions.current[categoryId] = y;
-  }, []);
-
-  const handleScrollBeginDrag = useCallback(() => {
-    setIsScrolling(true);
-  }, []);
-
-  const handleScrollEndDrag = useCallback(() => {
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-    
-    scrollTimeoutRef.current = setTimeout(() => {
-      setIsScrolling(false);
-    }, 150);
-  }, []);
-
-  const handleMomentumScrollEnd = useCallback(() => {
-    setIsScrolling(false);
   }, []);
 
   const renderCategoryItem = useCallback(({ item }: { item: MenuSection }) => (
@@ -516,16 +849,16 @@ export default function MenuScreen() {
       if (loadingPhraseRef.current) {
         clearInterval(loadingPhraseRef.current);
       }
-      if (addButtonTimeoutRef.current) {
-        clearTimeout(addButtonTimeoutRef.current);
-      }
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
       }
+      clearHoldTimer();
+      // Сбрасываем анимацию при размонтировании
+      pullProgressRef.setValue(0);
     };
-  }, [loading]);
+  }, [loading, clearHoldTimer]);
 
-  // Показываем экран загрузки и при подготовке меню
+  // Показываем экран загрузки
   if (loading || (!isDataReady && menuData.length > 0)) {
     return (
       <View style={[menuStyles.container, styles.centeredContainer]}>
@@ -559,6 +892,16 @@ export default function MenuScreen() {
 
   return (
     <View style={menuStyles.container}>
+      {/* Индикатор Pull-to-Add (только для админов) */}
+      {isAdmin && (pullState.isPulling || pullState.isHoldActive) && (
+        <PullToAddIndicator
+          progress={pullProgress}
+          isActive={pullState.isHoldActive}
+          isHolding={pullState.isHoldActive}
+          holdProgress={pullState.holdProgress}
+        />
+      )}
+
       <View style={menuStyles.headerContainer}>
         <View style={menuStyles.categoriesContainer}>
           <FlatList
@@ -580,11 +923,12 @@ export default function MenuScreen() {
         onScroll={handleScroll}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={handleScrollEndDrag}
+        onMomentumScrollBegin={handleMomentumScrollBegin}
         onMomentumScrollEnd={handleMomentumScrollEnd}
         scrollEventThrottle={16}
         contentContainerStyle={menuStyles.scrollContent}
         refreshControl={
-          user?.role === 'admin' ? (
+          !isAdmin ? (
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
@@ -593,15 +937,8 @@ export default function MenuScreen() {
             />
           ) : undefined
         }
+        {...(isAdmin ? panResponder.panHandlers : {})}
       >
-        {showAddButton && (
-          <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
-            <Text style={styles.addButtonIcon}>+</Text>
-            <Text style={styles.addButtonText}>Добавить новый товар</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Рендерим ВСЕ категории сразу */}
         {menuData.map(renderMenuSection)}
         
         <View style={menuStyles.bottomSpace} />
@@ -739,38 +1076,69 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2E7D32',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    marginTop: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  addButtonIcon: {
-    fontSize: 20,
-    color: 'white',
-    fontWeight: 'bold',
-    marginRight: 8,
-  },
-  addButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   realImage: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  // Стили для Pull-to-Add индикатора
+  pullIndicatorContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 60,
+    zIndex: 1000,
+  },
+  pullIndicator: {
+    backgroundColor: 'rgba(46, 125, 50, 0.95)',
+    borderRadius: 25,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    opacity: 0,
+    transform: [{ translateY: -15 }],
+  },
+  indicatorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 24,
+  },
+  holdProgressContainer: {
+    alignItems: 'center',
+    minWidth: 160,
+  },
+  holdProgressBackground: {
+    width: 120,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  holdProgressFill: {
+    height: '100%',
+    backgroundColor: 'white',
+    borderRadius: 2,
+  },
+  holdText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  pullText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
