@@ -17,7 +17,7 @@ export default function AboutScreen() {
   };
 
   const openVK = () => {
-    Linking.openURL('https://melbet.ru/ru/sport');
+    Linking.openURL('https://vk.com/hp_botanica');
   };
 
   const openMap = () => {
@@ -140,7 +140,7 @@ export default function AboutScreen() {
             style={aboutStyles.galleryImage}
           />
           <Image 
-            source={{ uri: 'https://i.pinimg.com/736x/63/7f/10/637f106bb34579117e5a344ffdd8a5a7.jpg' }}
+            source={{ uri: 'https://sun9-49.userapi.com/s/v1/ig2/KlnKqzmFNOmwiTp-oCX0hpzZRqEA-H2Gb4JdFT5eODQubeoG8EA0tH3IGC34Ow4CZIplOPgHzWUificIh9pOkqxp.jpg?quality=95&as=32x40,48x60,72x90,108x135,160x200,240x300,360x450,480x600,540x675,640x800,720x900,1080x1350,1280x1600,1440x1800,2048x2560&from=bu&cs=2048x0' }}
             style={aboutStyles.galleryImage}
           />
         </ScrollView>
