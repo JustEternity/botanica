@@ -18,6 +18,7 @@ import {
   Animated,
   PanResponder,
   Easing,
+  useWindowDimensions,
 } from 'react-native';
 import { useTable } from '../contexts/TableContext';
 import { MenuSection, MenuItem, MenuCategory, ContextMenuAction } from '../types';
@@ -43,27 +44,12 @@ const HOLD_PROGRESS_THRESHOLD = 0.5;
 
 const LOADING_PHRASES = [
   "Затягиваемся...",
-  "Забиваем кальян...", 
+  "Забиваем кальян...",
   "Разжигаем угли...",
   "Подготавливаем табак...",
   "Настраиваем атмосферу...",
   "Готовим вкусы..."
 ];
-
-const logger = {
-  info: (message: string, data?: any) => {
-    console.log(`ℹ️ [MenuScreen] ${message}`, data || '');
-  },
-  warn: (message: string, data?: any) => {
-    console.warn(`⚠️ [MenuScreen] ${message}`, data || '');
-  },
-  error: (message: string, data?: any) => {
-    console.error(`❌ [MenuScreen] ${message}`, data || '');
-  },
-  debug: (message: string, data?: any) => {
-    console.debug(`🔍 [MenuScreen] ${message}`, data || '');
-  }
-};
 
 // Компонент индикатора Pull-to-Add
 const PullToAddIndicator: React.FC<{
@@ -111,7 +97,7 @@ const PullToAddIndicator: React.FC<{
 
   return (
     <View style={styles.pullIndicatorContainer}>
-      <Animated.View 
+      <Animated.View
         style={[
           styles.pullIndicator,
           {
@@ -124,11 +110,11 @@ const PullToAddIndicator: React.FC<{
           {isHolding ? (
             <View style={styles.holdProgressContainer}>
               <View style={styles.holdProgressBackground}>
-                <View 
+                <View
                   style={[
                     styles.holdProgressFill,
                     { width: `${holdProgress * 100}%` }
-                  ]} 
+                  ]}
                 />
               </View>
               <Text style={styles.holdText}>
@@ -152,17 +138,21 @@ const MenuItemComponent: React.FC<{
   onItemPress: (item: MenuItem) => void;
   onPlusPress: (item: MenuItem) => void;
   onLongPress: (item: MenuItem) => void;
-}> = React.memo(({ 
-  item, 
-  onItemPress, 
+  isGridLayout?: boolean;
+}> = React.memo(({
+  item,
+  onItemPress,
   onPlusPress,
-  onLongPress 
+  onLongPress,
+  isGridLayout = false
 }) => {
   const { user } = useAuth();
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  const optimizedImageUrl = getOptimizedImageUrl(item.image, 160, 160);
+  // Разные размеры изображения для мобильного и grid режима
+  const imageSize = isGridLayout ? 400 : 160;
+  const optimizedImageUrl = getOptimizedImageUrl(item.image, imageSize, imageSize);
 
   const handleImageLoad = useCallback(() => {
     setImageLoaded(true);
@@ -187,10 +177,33 @@ const MenuItemComponent: React.FC<{
 
   const isAdmin = user?.role === 'admin';
 
+  // Используем разные стили в зависимости от layout
+  const containerStyle = isGridLayout
+    ? [menuStyles.menuItemContainer, styles.gridMenuItemContainer]
+    : menuStyles.menuItemContainer;
+
+  const itemStyle = isGridLayout
+    ? [menuStyles.menuItem, styles.gridMenuItem]
+    : menuStyles.menuItem;
+
+  // Для контейнера изображения используем разные стили
+  const imageContainerStyle = isGridLayout
+    ? [menuStyles.itemImageContainer, styles.gridImageContainer]
+    : menuStyles.itemImageContainer;
+
+  // Для самого изображения тоже разные стили
+  const imageStyle = isGridLayout
+    ? [menuStyles.itemImage, styles.gridItemImage]
+    : menuStyles.itemImage;
+
+  const contentStyle = isGridLayout
+    ? [menuStyles.itemContent, styles.gridItemContent]
+    : menuStyles.itemContent;
+
   return (
-    <View style={menuStyles.menuItemContainer}>
-      <TouchableOpacity 
-        style={menuStyles.menuItem}
+    <View style={containerStyle}>
+      <TouchableOpacity
+        style={itemStyle}
         onPress={handleItemPress}
         onLongPress={handleLongPress}
         activeOpacity={0.7}
@@ -202,18 +215,18 @@ const MenuItemComponent: React.FC<{
           </View>
         )}
 
-        <View style={menuStyles.itemImageContainer}>
+        <View style={imageContainerStyle}>
           <Image
             source={require('../../assets/botanicaplaceholder.jpg')}
-            style={menuStyles.itemImage}
+            style={imageStyle}
             resizeMode="cover"
           />
-          
+
           {!imageError && (
             <Image
               source={{ uri: optimizedImageUrl }}
               style={[
-                menuStyles.itemImage,
+                imageStyle,
                 styles.realImage,
                 { opacity: imageLoaded ? 1 : 0 }
               ]}
@@ -223,18 +236,50 @@ const MenuItemComponent: React.FC<{
             />
           )}
         </View>
-        
-        <View style={menuStyles.itemContent}>
-          <View style={menuStyles.itemHeader}>
-            <Text style={menuStyles.itemName}>{item.name}</Text>
-            <Text style={menuStyles.itemPrice}>{item.price} ₽</Text>
+
+        <View style={contentStyle}>
+          <View style={[menuStyles.itemHeader, isGridLayout && styles.gridItemHeader]}>
+            <Text
+              style={[
+                menuStyles.itemName,
+                isGridLayout && styles.gridItemName,
+                // Добавляем inline стиль для гарантии
+                isGridLayout && { textAlign: 'left' }
+              ]}
+              numberOfLines={isGridLayout ? 2 : 1}
+            >
+              {item.name}
+            </Text>
+            <Text
+              style={[
+                menuStyles.itemPrice,
+                isGridLayout && styles.gridItemPrice,
+                // Добавляем inline стиль для гарантии
+                isGridLayout && { textAlign: 'right' }
+              ]}
+            >
+              {item.price} ₽
+            </Text>
           </View>
-          <Text style={menuStyles.itemDescription}>{item.description}</Text>
+          <Text
+            style={[
+              menuStyles.itemDescription,
+              isGridLayout && styles.gridItemDescription,
+              // Добавляем inline стиль для гарантии
+              isGridLayout && { textAlign: 'left' }
+            ]}
+            numberOfLines={isGridLayout ? 3 : 2}
+          >
+            {item.description}
+          </Text>
         </View>
       </TouchableOpacity>
 
-      <TouchableOpacity 
-        style={styles.plusButton}
+      <TouchableOpacity
+        style={[
+          styles.plusButton,
+          isGridLayout && styles.gridPlusButton
+        ]}
         onPress={handlePlusPress}
         activeOpacity={0.8}
       >
@@ -244,7 +289,8 @@ const MenuItemComponent: React.FC<{
   );
 }, (prevProps, nextProps) => {
   return prevProps.item.id === nextProps.item.id &&
-         prevProps.item.is_available === nextProps.item.is_available;
+         prevProps.item.is_available === nextProps.item.is_available &&
+         prevProps.isGridLayout === nextProps.isGridLayout;
 });
 
 // Основной компонент экрана меню
@@ -252,12 +298,18 @@ export default function MenuScreen() {
   const { user } = useAuth();
   const { addMenuItem } = useCart();
   const { refreshTables } = useTable();
-  
+
+  // Используем useWindowDimensions для получения актуальных размеров
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+
   const isAdmin = user?.role === 'admin';
-  
+
+  // Определяем, использовать ли grid layout для веб-версии
+  const isWebWide = Platform.OS === 'web' && windowWidth > 768;
+
   // Refs для актуального значения isAdmin
   const isAdminRef = useRef(isAdmin);
-  
+
   // Анимированные значения для Pull-to-Add
   const pullProgressRef = useRef(new Animated.Value(0)).current;
 
@@ -298,14 +350,14 @@ export default function MenuScreen() {
   const categoryPositions = useRef<{[key: string]: number}>({});
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const loadingPhraseRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Refs для Pull-to-Add
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isAtTopRef = useRef(true);
   const lastScrollYRef = useRef(0);
   const isHoldActiveRef = useRef(false);
   const holdProgressRef = useRef(0);
-  const pullDistanceRef = useRef(0); // Добавляем ref для отслеживания текущего расстояния
+  const pullDistanceRef = useRef(0);
 
   // Расчет прогресса Pull-to-Add
   const pullProgress = useMemo(() => {
@@ -316,16 +368,16 @@ export default function MenuScreen() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const includeHidden = isAdmin;
       const data = await ApiService.getMenu(includeHidden);
       setMenuData(data);
-      
+
       if (data.length > 0) {
         setSelectedCategory(data[0].id);
         setIsDataReady(true);
       }
-      
+
     } catch (err) {
       const errorMessage = 'Не удалось загрузить меню. Проверьте подключение к интернету.';
       setError(errorMessage);
@@ -334,26 +386,24 @@ export default function MenuScreen() {
     }
   }, [isAdmin]);
 
-    const clearHoldTimer = useCallback(() => {
+  const clearHoldTimer = useCallback(() => {
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current);
       holdTimerRef.current = null;
     }
     isHoldActiveRef.current = false;
     holdProgressRef.current = 0;
-    
+
     setPullState(prev => ({
-      ...prev, 
-      isHoldActive: false, 
+      ...prev,
+      isHoldActive: false,
       holdProgress: 0
     }));
   }, []);
-  
-  // Функция обновления данных для всех пользователей
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    
-    // Сбрасываем состояние Pull-to-Add перед обновлением
+
     if (isAdminRef.current) {
       clearHoldTimer();
       isHoldActiveRef.current = false;
@@ -367,24 +417,19 @@ export default function MenuScreen() {
         isAdding: false,
       });
     }
-    
+
     loadMenuData().finally(() => {
       setRefreshing(false);
     });
   }, [loadMenuData, clearHoldTimer]);
 
-  // Функция очистки таймера удержания
-
-
-  // Функция сброса Pull-to-Add состояния
   const handlePullRelease = useCallback(() => {
     if (!isAdminRef.current) return;
-    
+
     const currentHoldProgress = holdProgressRef.current;
-    
+
     clearHoldTimer();
 
-    // Анимируем сброс прогресса
     Animated.timing(pullProgressRef, {
       toValue: 0,
       duration: 300,
@@ -400,20 +445,18 @@ export default function MenuScreen() {
       });
       isHoldActiveRef.current = false;
       pullDistanceRef.current = 0;
-      
+
       if (currentHoldProgress >= HOLD_PROGRESS_THRESHOLD && currentHoldProgress < 1) {
         onRefresh();
       }
     });
   }, [clearHoldTimer, onRefresh]);
 
-  // Функция завершения Pull-to-Add
   const completePullToAdd = useCallback(() => {
     if (!isAdminRef.current) return;
-    
+
     setPullState(prev => ({ ...prev, isAdding: true }));
-    
-    // Анимируем сброс прогресса перед открытием модального окна
+
     Animated.timing(pullProgressRef, {
       toValue: 0,
       duration: 300,
@@ -422,8 +465,7 @@ export default function MenuScreen() {
     }).start(() => {
       setEditingItem(null);
       setEditModalVisible(true);
-      
-      // Полный сброс состояния после анимации
+
       setPullState({
         isPulling: false,
         pullDistance: 0,
@@ -436,23 +478,21 @@ export default function MenuScreen() {
     });
   }, []);
 
-  // Функция запуска таймера удержания
   const startHoldTimer = useCallback(() => {
     if (!isAdminRef.current || isHoldActiveRef.current) return;
 
     isHoldActiveRef.current = true;
     setPullState(prev => ({ ...prev, isHoldActive: true, holdProgress: 0 }));
     holdProgressRef.current = 0;
-    
+
     const startTime = Date.now();
-    
+
     const updateProgress = () => {
-      // Проверяем, что все еще вверху, удержание активно и расстояние выше порога
       if (!isAtTopRef.current || !isHoldActiveRef.current || pullDistanceRef.current < PULL_THRESHOLD) {
         clearHoldTimer();
-        setPullState(prev => ({ 
-          ...prev, 
-          isHoldActive: false, 
+        setPullState(prev => ({
+          ...prev,
+          isHoldActive: false,
           holdProgress: 0
         }));
         return;
@@ -460,7 +500,7 @@ export default function MenuScreen() {
 
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / HOLD_DURATION, 1);
-      
+
       setPullState(prev => ({ ...prev, holdProgress: progress }));
       holdProgressRef.current = progress;
 
@@ -474,7 +514,6 @@ export default function MenuScreen() {
     holdTimerRef.current = setTimeout(updateProgress, 50);
   }, [completePullToAdd, clearHoldTimer]);
 
-  // Инициализация PanResponder для жестов (только для админов)
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => isAdminRef.current,
@@ -484,36 +523,31 @@ export default function MenuScreen() {
       },
       onPanResponderMove: (_, gestureState) => {
         const currentIsAdmin = isAdminRef.current;
-        
+
         if (!currentIsAdmin || !isAtTopRef.current || pullState.isAdding) {
           return;
         }
 
         const pullDistance = Math.min(gestureState.dy, MAX_PULL_DISTANCE);
-        pullDistanceRef.current = pullDistance; // Сохраняем в ref
-        
+        pullDistanceRef.current = pullDistance;
+
         setPullState(prev => ({
           ...prev,
           isPulling: true,
           pullDistance,
         }));
 
-        // Анимируем только прогресс (без трансформации контента)
         Animated.timing(pullProgressRef, {
           toValue: Math.min(pullDistance / PULL_THRESHOLD, 1),
           duration: 50,
           useNativeDriver: false,
         }).start();
 
-        // Логика управления таймером удержания
         if (pullDistance >= PULL_THRESHOLD) {
           if (!isHoldActiveRef.current) {
-            // Запускаем таймер только если он еще не активен
             startHoldTimer();
           }
-          // Если таймер уже активен, просто продолжаем - он сам обновит прогресс
         } else {
-          // Если расстояние ниже порога - отменяем таймер удержания
           if (isHoldActiveRef.current) {
             clearHoldTimer();
           }
@@ -534,16 +568,14 @@ export default function MenuScreen() {
     loadMenuData();
   }, [loadMenuData]);
 
-  // Обработчик скролла
   const TOP_BUFFER = 10;
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const scrollY = event.nativeEvent.contentOffset.y;
-    
+
     isAtTopRef.current = scrollY <= TOP_BUFFER;
     lastScrollYRef.current = scrollY;
 
-    // Логика отмены Pull-to-Add только для админов
     if (isAdminRef.current) {
       if (!isAtTopRef.current && (pullState.isPulling || pullState.isHoldActive)) {
         handlePullRelease();
@@ -554,7 +586,6 @@ export default function MenuScreen() {
       }
     }
 
-    // Логика скролла категорий
     if (isScrolling || !menuData.length || !isDataReady) return;
 
     let newSelectedCategory = selectedCategory;
@@ -604,10 +635,9 @@ export default function MenuScreen() {
     }
   }, [isScrolling, selectedCategory, menuData, isDataReady, pullState.isPulling, pullState.isHoldActive, handlePullRelease]);
 
-  // Обработчики скролла
   const handleScrollBeginDrag = useCallback(() => {
     setIsScrolling(true);
-    
+
     if (isAdminRef.current && isHoldActiveRef.current) {
       handlePullRelease();
     }
@@ -617,7 +647,7 @@ export default function MenuScreen() {
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
     }
-    
+
     scrollTimeoutRef.current = setTimeout(() => {
       setIsScrolling(false);
     }, 150);
@@ -664,7 +694,7 @@ export default function MenuScreen() {
   const handleLongPress = useCallback((item: MenuItem) => {
     if (isAdmin) {
       setSelectedContextItem({...item});
-      
+
       if (Platform.OS === 'ios') {
         // iOS контекстное меню
       } else {
@@ -761,7 +791,7 @@ export default function MenuScreen() {
     setIsScrolling(true);
 
     const targetPosition = categoryPositions.current[categoryId];
-    
+
     if (scrollViewRef.current && targetPosition !== undefined) {
       scrollViewRef.current.scrollTo({
         y: Math.max(0, targetPosition - 20),
@@ -805,8 +835,9 @@ export default function MenuScreen() {
     </TouchableOpacity>
   ), [selectedCategory, scrollToCategory]);
 
+  // Обновленный renderMenuSection с поддержкой grid layout
   const renderMenuSection = useCallback((category: MenuSection) => (
-    <View 
+    <View
       key={category.id}
       onLayout={(event) => {
         const { y } = event.nativeEvent.layout;
@@ -817,24 +848,28 @@ export default function MenuScreen() {
         <Text style={menuStyles.sectionTitle}>{category.title}</Text>
       </View>
 
-      {category.data.map((item) => (
-        <MenuItemComponent 
-          key={item.id} 
-          item={item} 
-          onItemPress={openModalWithItem}
-          onPlusPress={openModalWithPlus}
-          onLongPress={handleLongPress}
-        />
-      ))}
+      {/* Контейнер для grid layout */}
+      <View style={isWebWide ? styles.gridContainer : null}>
+        {category.data.map((item) => (
+          <MenuItemComponent
+            key={item.id}
+            item={item}
+            onItemPress={openModalWithItem}
+            onPlusPress={openModalWithPlus}
+            onLongPress={handleLongPress}
+            isGridLayout={isWebWide}
+          />
+        ))}
+      </View>
     </View>
-  ), [openModalWithItem, openModalWithPlus, handleLongPress, saveCategoryPosition]);
+  ), [openModalWithItem, openModalWithPlus, handleLongPress, saveCategoryPosition, isWebWide]);
 
   // Эффекты для таймеров
   useEffect(() => {
     if (loading) {
       let currentIndex = 0;
       setLoadingPhrase(LOADING_PHRASES[0]);
-      
+
       loadingPhraseRef.current = setInterval(() => {
         currentIndex = (currentIndex + 1) % LOADING_PHRASES.length;
         setLoadingPhrase(LOADING_PHRASES[currentIndex]);
@@ -853,7 +888,6 @@ export default function MenuScreen() {
         clearTimeout(scrollTimeoutRef.current);
       }
       clearHoldTimer();
-      // Сбрасываем анимацию при размонтировании
       pullProgressRef.setValue(0);
     };
   }, [loading, clearHoldTimer]);
@@ -879,7 +913,7 @@ export default function MenuScreen() {
         <View style={styles.errorContent}>
           <Text style={styles.errorEmoji}>😔</Text>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.retryButton}
             onPress={loadMenuData}
           >
@@ -940,7 +974,7 @@ export default function MenuScreen() {
         {...(isAdmin ? panResponder.panHandlers : {})}
       >
         {menuData.map(renderMenuSection)}
-        
+
         <View style={menuStyles.bottomSpace} />
       </ScrollView>
 
@@ -1054,12 +1088,20 @@ const styles = StyleSheet.create({
     elevation: 5,
     zIndex: 10,
   },
+  gridPlusButton: {
+    bottom: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
   plusButtonText: {
     fontSize: 20,
     color: 'white',
     fontWeight: 'bold',
     textAlign: 'center',
     lineHeight: 20,
+    marginTop: -4
   },
   hiddenIndicator: {
     position: 'absolute',
@@ -1140,5 +1182,100 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  // Стили для адаптивного grid layout
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    alignContent: 'flex-start',
+    paddingHorizontal: 24,
+    marginHorizontal: 'auto',
+    maxWidth: 1400,
+    width: '100%',
+    gap: 20
+  },
+  gridMenuItemContainer: {
+    minWidth: 300,
+    width: '23%',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
+    height: 380,
+  },
+  gridMenuItem: {
+    flexDirection: 'column',
+    height: '100%',
+  },
+  gridItemContent: {
+    flex: 1,
+    padding: 16,
+    justifyContent: 'space-between',
+    width: '100%', // Добавляем ширину 100%
+  },
+  // Обновленные стили для выравнивания текста в grid режиме
+  gridItemHeader: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between', // Название слева, цена справа
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    // Переопределяем возможные стили центрирования из menuStyles
+    alignSelf: 'stretch',
+  },
+  gridItemName: {
+    flex: 1,
+    textAlign: 'left',
+    marginRight: 8,
+    fontWeight: '600',
+    // Прижимаем текст к левому краю
+    alignSelf: 'flex-start',
+    textAlignVertical: 'top',
+  },
+  gridItemPrice: {
+    textAlign: 'right',
+    fontWeight: 'bold',
+    flexShrink: 0,
+    // Прижимаем текст к правому краю
+    alignSelf: 'flex-start',
+    textAlignVertical: 'top',
+  },
+  gridItemDescription: {
+    textAlign: 'left',
+    marginTop: 8,
+    color: '#666',
+    lineHeight: 18,
+    // Прижимаем описание к левому краю
+    alignSelf: 'stretch',
+    textAlignVertical: 'top',
+  },
+  gridImageContainer: {
+    width: '100%',
+    height: 200,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  gridItemImage: {
+    width: '100%',
+    height: '100%',
+  },
+  placeholderImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  realImageContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
 });

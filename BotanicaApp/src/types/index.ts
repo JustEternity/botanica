@@ -1,108 +1,217 @@
 import { Platform } from 'react-native';
 
-// Типы для заказов
-export interface OrderItem {
+// types/index.ts
+export type MenuItem = {
   id: string;
   name: string;
-  quantity: number;
   price: number;
-  total_price: number;
-}
+  description: string;
+  image: string;
+  is_available?: boolean;
+  cloudinary_public_id?: string;
+  category_id: number;
+};
 
-export interface Order {
+
+export type MenuCategory = {
   id: string;
-  table_id: string;
-  table_name: string;
-  table_description?: string;
-  table_capacity?: number;
-  customer_name: string;
-  customer_phone: string;
-  guests_count: number;
-  start_time: string;
-  end_time: string;
-  status: string;
-  total_amount: number | string;
-  created_at: string;
-  items: OrderItem[];
-  notes?: string;
-}
+  title: string;
+  is_active?: boolean;
+};
+
+export type ContextMenuAction = 'delete' | 'toggle_visibility' | 'edit' | 'cancel';
+
+export type MenuSection = {
+  id: string;
+  title: string;
+  data: MenuItem[];
+  is_active?: boolean;
+};
 
 export interface Table {
   id: string;
   number: number;
   isAvailable: boolean;
-  position: { x: number; y: number };
-  description: string;
-  maxPeople: number;
+  position: {
+    x: number;
+    y: number;
+  };
+  description?: string;
+  maxPeople?: number;
 }
 
-// Типы для аутентификации
-export interface User {
+export type MenuModalData = {
+  item: MenuItem;
+  initialQuantity: number;
+};
+
+export type User = {
   id: string;
   name: string;
   phone: string;
-  role: 'user' | 'admin';
+  role: 'customer' | 'admin';
+  created_at?: string;
+  cloudinary_public_id?: string;
   cloudinary_url?: string;
-}
+};
 
-export interface AuthResponse {
-  user: User;
-  token: string;
-}
-
-export interface LoginCredentials {
+export type AuthCredentials = {
   phone: string;
   password: string;
-}
+};
 
-export interface RegisterCredentials {
+export type RegisterData = {
   name: string;
   phone: string;
   password: string;
-}
+};
 
-// Типы для корзины
-export interface CartItem {
+export type ApiResponse<T> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+};
+
+// ========== ТИПЫ ДЛЯ ЗАКАЗОВ И БРОНИРОВАНИЙ ==========
+
+export interface OrderItem {
   id: string;
-  name: string;
-  price: number;
+  menu_item_id: string;
   quantity: number;
-  image?: string;
-  category: string;
-}
-
-export interface Cart {
-  items: CartItem[];
-  total: number;
-}
-
-// Типы для меню
-export interface MenuItem {
-  id: string;
+  unit_price: number;
+  total_price: number;
   name: string;
   description: string;
-  price: number;
-  image: string;
-  category: string;
-  isAvailable: boolean;
 }
 
-export interface MenuCategory {
+export interface Order {
   id: string;
-  name: string;
-  items: MenuItem[];
+  reservation_id: string;
+  user_id: string;
+  status: 'в работе' | 'выполнен' | 'отменен' | 'не выполнен';
+  total_amount: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+
+  // Дополнительные поля из JOIN запросов
+  start_time?: string;
+  end_time?: string;
+  guests_count?: number;
+  table_id?: string;
+  table_name?: string;
+  table_description?: string;
+  table_capacity?: number;
+  customer_name?: string;
+  customer_phone?: string;
+  reservation_active?: boolean;
+
+  items: OrderItem[];
 }
 
-// Типы для бронирования
-export interface ReservationData {
+// Обновленный интерфейс для создания заказа/бронирования
+export interface CreateOrderData {
   table_id: string;
-  table_name: string;
+  start_time: string;
+  end_time: string;
+  guests_count?: number;
+  items?: Array<{
+    menu_item_id: string;
+    quantity: number;
+  }>;
+  notes?: string;
+}
+
+// Новый интерфейс для ответа при создании заказа/бронирования
+export interface CreateOrderResponse {
+  success: boolean;
+  order?: Order; // Заказ создается только если есть items
+  reservation: {
+    id: string;
+    table_id: string;
+    start_time: string;
+    end_time: string;
+    guests_count: number;
+  };
+  message?: string;
+}
+
+
+export interface Reservation {
+  id: string;
+  table_id: string;
   start_time: string;
   end_time: string;
   guests_count: number;
-  customer_name: string;
-  customer_phone: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+
+  // Дополнительные поля из JOIN запросов
+  table_name?: string;
+  table_description?: string;
+  table_capacity?: number;
+  customer_name?: string;
+  customer_phone?: string;
+}
+
+export interface OrdersResponse {
+  success: boolean;
+  orders: Order[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
+
+export interface TableOrdersResponse {
+  success: boolean;
+  orders: Order[];
+  table: Table;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
+
+export interface TablesResponse {
+  success: boolean;
+  tables: Table[];
+  requested_period: {
+    start: string;
+    end: string;
+  };
+}
+
+
+export interface ReservationsResponse {
+  success: boolean;
+  reservations: Reservation[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
+
+// Типы для работы с бронированиями
+export interface CreateReservationData {
+  table_id: string;
+  start_time: string;
+  end_time: string;
+  guests_count?: number;
   notes?: string;
+}
+
+export interface UpdateReservationData {
+  start_time?: string;
+  end_time?: string;
+  guests_count?: number;
+  notes?: string;
+  is_active?: boolean;
 }
 
 // Функция для создания HTML контента для веба
@@ -125,21 +234,21 @@ export function createWebHomePage() {
                 padding: 0;
                 box-sizing: border-box;
             }
-            
+
             body {
                 font-family: 'Arial', sans-serif;
                 background: #0a1f0a;
                 color: #E8F5E8;
                 line-height: 1.6;
             }
-            
+
             .header {
                 background: #0a1f0a;
                 padding: 20px 50px;
                 border-bottom: 1px solid #1a3d1a;
                 text-align: center;
             }
-            
+
             .title {
                 font-size: 42px;
                 font-weight: bold;
@@ -147,21 +256,21 @@ export function createWebHomePage() {
                 letter-spacing: 4px;
                 margin-bottom: 5px;
             }
-            
+
             .subtitle {
                 font-size: 16px;
                 color: #81C784;
                 letter-spacing: 2px;
                 margin-bottom: 20px;
             }
-            
+
             .nav {
                 display: flex;
                 justify-content: center;
                 gap: 30px;
                 margin-top: 20px;
             }
-            
+
             .nav-button {
                 padding: 10px 20px;
                 color: #E8F5E8;
@@ -171,11 +280,11 @@ export function createWebHomePage() {
                 cursor: pointer;
                 transition: color 0.3s;
             }
-            
+
             .nav-button:hover {
                 color: #4CAF50;
             }
-            
+
             .hero {
                 height: 600px;
                 background: linear-gradient(135deg, #1a3d1a 0%, #0a1f0a 100%);
@@ -184,7 +293,7 @@ export function createWebHomePage() {
                 justify-content: center;
                 text-align: center;
             }
-            
+
             .hero-title {
                 font-size: 48px;
                 font-weight: bold;
@@ -192,36 +301,36 @@ export function createWebHomePage() {
                 margin-bottom: 15px;
                 letter-spacing: 2px;
             }
-            
+
             .hero-subtitle {
                 font-size: 24px;
                 color: #81C784;
                 margin-bottom: 30px;
                 letter-spacing: 1px;
             }
-            
+
             .cta-button {
                 background: #4CAF50;
                 color: white;
                 padding: 15px 40px;
                 border: none;
                 border-radius: 5px;
-                font-size: 16;
+                font-size: 16px;
                 font-weight: bold;
                 letter-spacing: 1px;
                 cursor: pointer;
                 transition: background 0.3s;
             }
-            
+
             .cta-button:hover {
                 background: #45a049;
             }
-            
+
             .section {
                 padding: 80px 50px;
                 text-align: center;
             }
-            
+
             .section-title {
                 font-size: 36px;
                 font-weight: bold;
@@ -229,7 +338,7 @@ export function createWebHomePage() {
                 margin-bottom: 50px;
                 letter-spacing: 2px;
             }
-            
+
             .about-description {
                 font-size: 18px;
                 color: #E8F5E8;
@@ -237,40 +346,40 @@ export function createWebHomePage() {
                 margin: 0 auto 40px;
                 line-height: 28px;
             }
-            
+
             .features {
                 display: flex;
                 justify-content: center;
                 gap: 30px;
                 flex-wrap: wrap;
             }
-            
+
             .feature {
                 flex: 1;
                 min-width: 200px;
                 padding: 20px;
             }
-            
+
             .feature-title {
                 font-size: 18px;
                 font-weight: bold;
                 color: #81C784;
                 margin-bottom: 10px;
             }
-            
+
             .feature-text {
                 font-size: 14px;
                 color: #C8E6C9;
                 line-height: 20px;
             }
-            
+
             .menu-grid {
                 display: flex;
                 justify-content: center;
                 gap: 30px;
                 flex-wrap: wrap;
             }
-            
+
             .menu-category {
                 background: #0a1f0a;
                 padding: 40px;
@@ -279,31 +388,31 @@ export function createWebHomePage() {
                 min-width: 200px;
                 text-align: center;
             }
-            
+
             .menu-category-title {
                 font-size: 20px;
                 font-weight: bold;
                 color: #4CAF50;
                 margin-bottom: 10px;
             }
-            
+
             .menu-category-text {
                 font-size: 16px;
                 color: #81C784;
             }
-            
+
             .contacts-grid {
                 display: flex;
                 justify-content: center;
                 gap: 50px;
                 flex-wrap: wrap;
             }
-            
+
             .contact-info {
                 text-align: center;
                 min-width: 200px;
             }
-            
+
             .contact-title {
                 font-size: 16px;
                 font-weight: bold;
@@ -311,19 +420,19 @@ export function createWebHomePage() {
                 margin-bottom: 10px;
                 letter-spacing: 1px;
             }
-            
+
             .contact-text {
                 font-size: 16px;
                 color: #E8F5E8;
             }
-            
+
             .footer {
                 background: #0a1f0a;
                 padding: 30px;
                 text-align: center;
                 border-top: 1px solid #1a3d1a;
             }
-            
+
             .footer-text {
                 color: #81C784;
                 font-size: 14px;
@@ -353,9 +462,9 @@ export function createWebHomePage() {
         <section class="section" style="background: #0a1f0a;">
             <h3 class="section-title">О НАС</h3>
             <p class="about-description">
-                Botanica - это уютное кафе-кальянная, где встречаются изысканные вкусы, 
-                приятная атмосфера и высокий уровень сервиса. Мы создали место, 
-                где можно расслабиться, пообщаться с друзьями и насладиться лучшими 
+                Botanica - это уютное кафе-кальянная, где встречаются изысканные вкусы,
+                приятная атмосфера и высокий уровень сервиса. Мы создали место,
+                где можно расслабиться, пообщаться с друзьями и насладиться лучшими
                 кальянами в городе.
             </p>
             <div class="features">
@@ -427,7 +536,7 @@ export function createWebHomePage() {
             document.querySelector('.cta-button').addEventListener('click', function() {
                 alert('Функция бронирования столика будет здесь!');
             });
-            
+
             document.querySelectorAll('.nav-button').forEach(button => {
                 button.addEventListener('click', function() {
                     alert('Навигация будет реализована позже');
