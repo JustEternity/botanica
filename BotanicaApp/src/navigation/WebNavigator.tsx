@@ -8,14 +8,14 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
 import WebHomeScreen, { WebHeader } from '../screens/WebHomeScreen';
 import MenuScreen from '../screens/MenuScreen'; 
-import ProfileScreen from '../screens/ProfileScreen';
+import WebProfileScreen from '../screens/WebProfileScreen';
 import AboutScreen from '../screens/AboutScreen';
 import HallMapScreen from '../screens/HallMapScreen';
 import TableReservationModal from '../screens/TableReservationScreen';
+import OrderHistoryScreen from '../screens/OrdersHistoryScreen';
 
 const Stack = createNativeStackNavigator();
 
-// Обертка для MenuScreen с хедером
 function MenuScreenWrapper({ navigation }: any) {
   return (
     <View style={{ flex: 1, backgroundColor: '#0a1f0a' }}>
@@ -25,7 +25,6 @@ function MenuScreenWrapper({ navigation }: any) {
   );
 }
 
-// Обертка для HallMapScreen с хедером
 function HallMapScreenWrapper({ navigation }: any) {
   return (
     <View style={{ flex: 1, backgroundColor: '#0a1f0a' }}>
@@ -35,17 +34,15 @@ function HallMapScreenWrapper({ navigation }: any) {
   );
 }
 
-// Обертка для ProfileScreen с хедером
 function ProfileScreenWrapper({ navigation }: any) {
   return (
     <View style={{ flex: 1, backgroundColor: '#0a1f0a' }}>
       <WebHeader navigation={navigation} currentScreen="Profile" />
-      <ProfileScreen navigation={navigation} />
+      <WebProfileScreen navigation={navigation} />
     </View>
   );
 }
 
-// Обертка для AboutScreen с хедером
 function AboutScreenWrapper({ navigation }: any) {
   return (
     <View style={{ flex: 1, backgroundColor: '#0a1f0a' }}>
@@ -55,10 +52,17 @@ function AboutScreenWrapper({ navigation }: any) {
   );
 }
 
-// Обертка для модалки бронирования
+function OrderHistoryScreenWrapper({ navigation }: any) {
+  return (
+    <View style={{ flex: 1, backgroundColor: '#0a1f0a' }}>
+      <WebHeader navigation={navigation} currentScreen="OrderHistory" />
+      <OrderHistoryScreen navigation={navigation} />
+    </View>
+  );
+}
+
 function TableReservationWrapper({ route, navigation }: any) {
   const { table } = route.params || {};
-  
   if (!table) {
     return (
       <View style={{ flex: 1, backgroundColor: '#0a1f0a' }}>
@@ -72,7 +76,6 @@ function TableReservationWrapper({ route, navigation }: any) {
       </View>
     );
   }
-
   return (
     <View style={{ flex: 1, backgroundColor: '#0a1f0a' }}>
       <WebHeader navigation={navigation} currentScreen="HallMap" />
@@ -106,6 +109,7 @@ export default function WebNavigator() {
         <Stack.Screen name="HallMap" component={HallMapScreenWrapper} />
         <Stack.Screen name="Profile" component={ProfileScreenWrapper} />
         <Stack.Screen name="About" component={AboutScreenWrapper} />
+        <Stack.Screen name="OrderHistory" component={OrderHistoryScreenWrapper} />
         <Stack.Screen name="TableReservation" component={TableReservationWrapper} />
       </Stack.Navigator>
     </NavigationContainer>

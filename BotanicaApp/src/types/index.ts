@@ -1,5 +1,110 @@
 import { Platform } from 'react-native';
 
+// Типы для заказов
+export interface OrderItem {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  total_price: number;
+}
+
+export interface Order {
+  id: string;
+  table_id: string;
+  table_name: string;
+  table_description?: string;
+  table_capacity?: number;
+  customer_name: string;
+  customer_phone: string;
+  guests_count: number;
+  start_time: string;
+  end_time: string;
+  status: string;
+  total_amount: number | string;
+  created_at: string;
+  items: OrderItem[];
+  notes?: string;
+}
+
+export interface Table {
+  id: string;
+  number: number;
+  isAvailable: boolean;
+  position: { x: number; y: number };
+  description: string;
+  maxPeople: number;
+}
+
+// Типы для аутентификации
+export interface User {
+  id: string;
+  name: string;
+  phone: string;
+  role: 'user' | 'admin';
+  cloudinary_url?: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  token: string;
+}
+
+export interface LoginCredentials {
+  phone: string;
+  password: string;
+}
+
+export interface RegisterCredentials {
+  name: string;
+  phone: string;
+  password: string;
+}
+
+// Типы для корзины
+export interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image?: string;
+  category: string;
+}
+
+export interface Cart {
+  items: CartItem[];
+  total: number;
+}
+
+// Типы для меню
+export interface MenuItem {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  category: string;
+  isAvailable: boolean;
+}
+
+export interface MenuCategory {
+  id: string;
+  name: string;
+  items: MenuItem[];
+}
+
+// Типы для бронирования
+export interface ReservationData {
+  table_id: string;
+  table_name: string;
+  start_time: string;
+  end_time: string;
+  guests_count: number;
+  customer_name: string;
+  customer_phone: string;
+  notes?: string;
+}
+
 // Функция для создания HTML контента для веба
 export function createWebHomePage() {
   if (Platform.OS !== 'web') {
@@ -101,7 +206,7 @@ export function createWebHomePage() {
                 padding: 15px 40px;
                 border: none;
                 border-radius: 5px;
-                font-size: 16px;
+                font-size: 16;
                 font-weight: bold;
                 letter-spacing: 1px;
                 cursor: pointer;
