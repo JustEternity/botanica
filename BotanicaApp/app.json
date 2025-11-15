@@ -6,7 +6,8 @@
         {
           "photosPermission": "Приложение использует ваши фото, чтобы вы могли делиться ими с друзьями."
         }
-      ]
+      ],
+      "expo-router"
     ],
     "name": "BotanicaApp",
     "slug": "BotanicaApp",
