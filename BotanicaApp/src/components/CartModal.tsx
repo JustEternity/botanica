@@ -179,8 +179,11 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
                         Platform.OS === 'web' && styles.webModalContainer as ViewStyle
                     ]}>
                         <View style={styles.loadingOverlay}>
-                            <ActivityIndicator size="large" color="#2E7D32" />
-                            <Text style={styles.loadingText}>Загрузка корзины...</Text>
+                            <ActivityIndicator size="large" color={Platform.OS === 'web' ? '#8D6E63' : '#2E7D32'} />
+                            <Text style={[
+                                styles.loadingText,
+                                Platform.OS === 'web' && styles.webLoadingText as TextStyle
+                            ]}>Загрузка корзины...</Text>
                         </View>
                     </View>
                 </TouchableOpacity>
@@ -208,15 +211,27 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
                     Platform.OS === 'web' && styles.webModalContainer as ViewStyle
                 ]}>
                     {/* Заголовок */}
-                    <View style={styles.header}>
+                    <View style={[
+                        styles.header,
+                        Platform.OS === 'web' && styles.webHeader as ViewStyle
+                    ]}>
                         <View style={styles.headerSpacer} />
-                        <Text style={styles.modalTitle}>Корзина</Text>
+                        <Text style={[
+                            styles.modalTitle,
+                            Platform.OS === 'web' && styles.webModalTitle as TextStyle
+                        ]}>Корзина</Text>
                         <TouchableOpacity
-                            style={styles.closeButton}
+                            style={[
+                                styles.closeButton,
+                                Platform.OS === 'web' && styles.webCloseButton as ViewStyle
+                            ]}
                             onPress={onClose}
                             disabled={isSubmitting}
                         >
-                            <Text style={styles.closeButtonText}>✕</Text>
+                            <Text style={[
+                                styles.closeButtonText,
+                                Platform.OS === 'web' && styles.webCloseButtonText as TextStyle
+                            ]}>✕</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -226,36 +241,64 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
                     >
                         {/* Секция столика */}
                         <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Бронирование столика</Text>
+                            <Text style={[
+                                styles.sectionTitle,
+                                Platform.OS === 'web' && styles.webSectionTitle as TextStyle
+                            ]}>Бронирование столика</Text>
 
                             {tableReservation ? (
-                                <View style={styles.tableCard}>
+                                <View style={[
+                                    styles.tableCard,
+                                    Platform.OS === 'web' && styles.webTableCard as ViewStyle
+                                ]}>
                                     <View style={styles.tableHeader}>
-                                        <Text style={styles.tableNumber}>
+                                        <Text style={[
+                                            styles.tableNumber,
+                                            Platform.OS === 'web' && styles.webTableNumber as TextStyle
+                                        ]}>
                                             Стол №{tableReservation.table.number}
                                         </Text>
                                         <TouchableOpacity
-                                            style={styles.removeButton}
+                                            style={[
+                                                styles.removeButton,
+                                                Platform.OS === 'web' && styles.webRemoveButton as ViewStyle
+                                            ]}
                                             onPress={removeTableReservation}
                                         >
-                                            <Text style={styles.removeButtonText}>✕</Text>
+                                            <Text style={[
+                                                styles.removeButtonText,
+                                                Platform.OS === 'web' && styles.webRemoveButtonText as TextStyle
+                                            ]}>✕</Text>
                                         </TouchableOpacity>
                                     </View>
 
-                                    <Text style={styles.tableTime}>
+                                    <Text style={[
+                                        styles.tableTime,
+                                        Platform.OS === 'web' && styles.webTableTime as TextStyle
+                                    ]}>
                                         {formatDate(tableReservation.startTime)} • {formatTime(tableReservation.startTime)} - {formatTime(tableReservation.endTime)}
                                     </Text>
-                                    <Text style={styles.tableDescription}>
+                                    <Text style={[
+                                        styles.tableDescription,
+                                        Platform.OS === 'web' && styles.webTableDescription as TextStyle
+                                    ]}>
                                         {tableReservation.table.description}
                                     </Text>
 
                                     <View style={styles.guestsControl}>
-                                        <Text style={styles.guestsLabel}>Количество гостей:</Text>
-                                        <View style={styles.quantityControls}>
+                                        <Text style={[
+                                            styles.guestsLabel,
+                                            Platform.OS === 'web' && styles.webGuestsLabel as TextStyle
+                                        ]}>Количество гостей:</Text>
+                                        <View style={[
+                                            styles.quantityControls,
+                                            Platform.OS === 'web' && styles.webQuantityControls as ViewStyle
+                                        ]}>
                                             <TouchableOpacity
                                                 style={[
                                                     styles.quantityButton,
-                                                    tableReservation.guestsCount <= 1 && styles.quantityButtonDisabled
+                                                    tableReservation.guestsCount <= 1 && styles.quantityButtonDisabled,
+                                                    Platform.OS === 'web' && styles.webQuantityButton as ViewStyle
                                                 ]}
                                                 onPress={handleGuestsDecrement}
                                                 disabled={tableReservation.guestsCount <= 1}
@@ -263,14 +306,18 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
                                                 <Text style={styles.quantityButtonText}>-</Text>
                                             </TouchableOpacity>
 
-                                            <Text style={styles.quantityValue}>
+                                            <Text style={[
+                                                styles.quantityValue,
+                                                Platform.OS === 'web' && styles.webQuantityValue as TextStyle
+                                            ]}>
                                                 {tableReservation.guestsCount}
                                             </Text>
 
                                             <TouchableOpacity
                                                 style={[
                                                     styles.quantityButton,
-                                                    tableReservation.guestsCount >= (tableReservation.table.maxPeople || 10) && styles.quantityButtonDisabled
+                                                    tableReservation.guestsCount >= (tableReservation.table.maxPeople || 10) && styles.quantityButtonDisabled,
+                                                    Platform.OS === 'web' && styles.webQuantityButton as ViewStyle
                                                 ]}
                                                 onPress={handleGuestsIncrement}
                                                 disabled={tableReservation.guestsCount >= (tableReservation.table.maxPeople || 10)}
@@ -281,8 +328,14 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
                                     </View>
                                 </View>
                             ) : (
-                                <View style={styles.emptyState}>
-                                    <Text style={styles.emptyStateText}>
+                                <View style={[
+                                    styles.emptyState,
+                                    Platform.OS === 'web' && styles.webEmptyState as ViewStyle
+                                ]}>
+                                    <Text style={[
+                                        styles.emptyStateText,
+                                        Platform.OS === 'web' && styles.webEmptyStateText as TextStyle
+                                    ]}>
                                         Выберите столик для бронирования на схеме зала
                                     </Text>
                                 </View>
@@ -291,29 +344,48 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
 
                         {/* Секция товаров */}
                         <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Заказанные блюда</Text>
+                            <Text style={[
+                                styles.sectionTitle,
+                                Platform.OS === 'web' && styles.webSectionTitle as TextStyle
+                            ]}>Заказанные блюда</Text>
 
                             {menuItems.length > 0 ? (
                                 menuItems.map((cartItem) => (
-                                    <View key={cartItem.item.id} style={styles.menuItemCard}>
+                                    <View key={cartItem.item.id} style={[
+                                        styles.menuItemCard,
+                                        Platform.OS === 'web' && styles.webMenuItemCard as ViewStyle
+                                    ]}>
                                         <View style={styles.menuItemInfo}>
-                                            <Text style={styles.menuItemName}>
+                                            <Text style={[
+                                                styles.menuItemName,
+                                                Platform.OS === 'web' && styles.webMenuItemName as TextStyle
+                                            ]}>
                                                 {cartItem.item.name}
                                             </Text>
-                                            <Text style={styles.menuItemPrice}>
+                                            <Text style={[
+                                                styles.menuItemPrice,
+                                                Platform.OS === 'web' && styles.webMenuItemPrice as TextStyle
+                                            ]}>
                                                 {cartItem.item.price * cartItem.quantity} ₽
                                             </Text>
-                                            <Text style={styles.menuItemDescription}>
+                                            <Text style={[
+                                                styles.menuItemDescription,
+                                                Platform.OS === 'web' && styles.webMenuItemDescription as TextStyle
+                                            ]}>
                                                 {cartItem.item.price} ₽ × {cartItem.quantity} шт.
                                             </Text>
                                         </View>
 
                                         <View style={styles.itemControl}>
-                                            <View style={styles.quantityControlsSmall}>
+                                            <View style={[
+                                                styles.quantityControlsSmall,
+                                                Platform.OS === 'web' && styles.webQuantityControlsSmall as ViewStyle
+                                            ]}>
                                                 <TouchableOpacity
                                                     style={[
                                                         styles.quantityButtonSmall,
-                                                        cartItem.quantity <= 1 && styles.quantityButtonDisabled
+                                                        cartItem.quantity <= 1 && styles.quantityButtonDisabled,
+                                                        Platform.OS === 'web' && styles.webQuantityButtonSmall as ViewStyle
                                                     ]}
                                                     onPress={() => handleItemDecrement(cartItem.item.id)}
                                                     disabled={cartItem.quantity <= 1}
@@ -321,12 +393,18 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
                                                     <Text style={styles.quantityButtonText}>-</Text>
                                                 </TouchableOpacity>
 
-                                                <Text style={styles.quantityValueSmall}>
+                                                <Text style={[
+                                                    styles.quantityValueSmall,
+                                                    Platform.OS === 'web' && styles.webQuantityValueSmall as TextStyle
+                                                ]}>
                                                     {cartItem.quantity}
                                                 </Text>
 
                                                 <TouchableOpacity
-                                                    style={styles.quantityButtonSmall}
+                                                    style={[
+                                                        styles.quantityButtonSmall,
+                                                        Platform.OS === 'web' && styles.webQuantityButtonSmall as ViewStyle
+                                                    ]}
                                                     onPress={() => handleItemIncrement(cartItem.item.id)}
                                                 >
                                                     <Text style={styles.quantityButtonText}>+</Text>
@@ -334,17 +412,29 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
                                             </View>
 
                                             <TouchableOpacity
-                                                style={styles.removeButtonSmall}
+                                                style={[
+                                                    styles.removeButtonSmall,
+                                                    Platform.OS === 'web' && styles.webRemoveButtonSmall as ViewStyle
+                                                ]}
                                                 onPress={() => removeMenuItem(cartItem.item.id)}
                                             >
-                                                <Text style={styles.removeButtonText}>✕</Text>
+                                                <Text style={[
+                                                    styles.removeButtonText,
+                                                    Platform.OS === 'web' && styles.webRemoveButtonText as TextStyle
+                                                ]}>✕</Text>
                                             </TouchableOpacity>
                                         </View>
                                     </View>
                                 ))
                             ) : (
-                                <View style={styles.emptyState}>
-                                    <Text style={styles.emptyStateText}>
+                                <View style={[
+                                    styles.emptyState,
+                                    Platform.OS === 'web' && styles.webEmptyState as ViewStyle
+                                ]}>
+                                    <Text style={[
+                                        styles.emptyStateText,
+                                        Platform.OS === 'web' && styles.webEmptyStateText as TextStyle
+                                    ]}>
                                         Выберите позиции из меню
                                     </Text>
                                 </View>
@@ -353,13 +443,19 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
 
                         {/* Поле для комментария */}
                         <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Комментарий к заказу</Text>
+                            <Text style={[
+                                styles.sectionTitle,
+                                Platform.OS === 'web' && styles.webSectionTitle as TextStyle
+                            ]}>Комментарий к заказу</Text>
                             <TextInput
-                                style={styles.commentInput}
+                                style={[
+                                    styles.commentInput,
+                                    Platform.OS === 'web' && styles.webCommentInput as TextStyle
+                                ]}
                                 value={comment}
                                 onChangeText={setComment}
                                 placeholder="Добавьте пожелания к заказу..."
-                                placeholderTextColor="#999"
+                                placeholderTextColor={Platform.OS === 'web' ? '#8D6E63' : '#999'}
                                 multiline
                                 numberOfLines={3}
                                 textAlignVertical="top"
@@ -368,16 +464,28 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
 
                         {/* Итоговая сумма */}
                         {(!isEmpty() && menuItems.length > 0) && (
-                            <View style={styles.totalSection}>
-                                <Text style={styles.totalLabel}>Итого:</Text>
-                                <Text style={styles.totalPrice}>{totalPrice} ₽</Text>
+                            <View style={[
+                                styles.totalSection,
+                                Platform.OS === 'web' && styles.webTotalSection as ViewStyle
+                            ]}>
+                                <Text style={[
+                                    styles.totalLabel,
+                                    Platform.OS === 'web' && styles.webTotalLabel as TextStyle
+                                ]}>Итого:</Text>
+                                <Text style={[
+                                    styles.totalPrice,
+                                    Platform.OS === 'web' && styles.webTotalPrice as TextStyle
+                                ]}>{totalPrice} ₽</Text>
                             </View>
                         )}
                     </ScrollView>
 
                     {/* Кнопка оформления заказа */}
                     {!isEmpty() && (
-                        <View style={styles.footer}>
+                        <View style={[
+                            styles.footer,
+                            Platform.OS === 'web' && styles.webFooter as ViewStyle
+                        ]}>
                             <TouchableOpacity
                                 style={[
                                     styles.orderButton,
@@ -438,6 +546,10 @@ const styles = StyleSheet.create({
             shadowOpacity: 0.25,
             shadowRadius: 3.84,
             elevation: 5,
+            backgroundColor: '#FFF8F0', // Кремовый фон для веба
+            borderWidth: 1,
+            borderColor: '#F5E6D3',
+            overflow: 'hidden',
         },
         default: {}
     }) as ViewStyle,
@@ -452,6 +564,14 @@ const styles = StyleSheet.create({
         borderBottomColor: '#f0f0f0',
     } as ViewStyle,
 
+    webHeader: Platform.select({
+        web: {
+            borderBottomColor: '#F5E6D3',
+            backgroundColor: '#FFF8F0',
+        },
+        default: {}
+    }) as ViewStyle,
+
     headerSpacer: {
         width: 30,
     } as ViewStyle,
@@ -464,6 +584,13 @@ const styles = StyleSheet.create({
         flex: 1,
     } as TextStyle,
 
+    webModalTitle: Platform.select({
+        web: {
+            color: '#5D4037', // Темно-коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
+
     closeButton: {
         width: 30,
         height: 30,
@@ -473,11 +600,25 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     } as ViewStyle,
 
+    webCloseButton: Platform.select({
+        web: {
+            backgroundColor: '#8D6E63', // Коричневый для веба
+        },
+        default: {}
+    }) as ViewStyle,
+
     closeButtonText: {
         fontSize: 16,
         color: '#666',
         fontWeight: 'bold',
     } as TextStyle,
+
+    webCloseButtonText: Platform.select({
+        web: {
+            color: '#FFF8F0', // Кремовый текст для веба
+        },
+        default: {}
+    }) as TextStyle,
 
     content: {
         paddingHorizontal: 20,
@@ -495,6 +636,13 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     } as TextStyle,
 
+    webSectionTitle: Platform.select({
+        web: {
+            color: '#5D4037', // Темно-коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
+
     tableCard: {
         backgroundColor: '#f8f9fa',
         borderRadius: 12,
@@ -502,6 +650,16 @@ const styles = StyleSheet.create({
         borderLeftWidth: 4,
         borderLeftColor: '#2E7D32',
     } as ViewStyle,
+
+    webTableCard: Platform.select({
+        web: {
+            backgroundColor: '#FFF8F0',
+            borderLeftColor: '#8D6E63', // Коричневый акцент для веба
+            borderWidth: 1,
+            borderColor: '#F5E6D3',
+        },
+        default: {}
+    }) as ViewStyle,
 
     tableHeader: {
         flexDirection: 'row',
@@ -517,11 +675,25 @@ const styles = StyleSheet.create({
         flex: 1,
     } as TextStyle,
 
+    webTableNumber: Platform.select({
+        web: {
+            color: '#8D6E63', // Коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
+
     tableTime: {
         fontSize: 14,
         color: '#666',
         marginBottom: 8,
     } as TextStyle,
+
+    webTableTime: Platform.select({
+        web: {
+            color: '#8D6E63', // Коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
 
     tableDescription: {
         fontSize: 14,
@@ -529,6 +701,13 @@ const styles = StyleSheet.create({
         lineHeight: 20,
         marginBottom: 12,
     } as TextStyle,
+
+    webTableDescription: Platform.select({
+        web: {
+            color: '#8D6E63', // Коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
 
     guestsControl: {
         flexDirection: 'row',
@@ -542,6 +721,13 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     } as TextStyle,
 
+    webGuestsLabel: Platform.select({
+        web: {
+            color: '#5D4037', // Темно-коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
+
     quantityControls: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -549,6 +735,13 @@ const styles = StyleSheet.create({
         borderRadius: 25,
         padding: 5,
     } as ViewStyle,
+
+    webQuantityControls: Platform.select({
+        web: {
+            backgroundColor: '#FFF8F0',
+        },
+        default: {}
+    }) as ViewStyle,
 
     quantityButton: {
         width: 40,
@@ -559,6 +752,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     } as ViewStyle,
 
+    webQuantityButton: Platform.select({
+        web: {
+            backgroundColor: '#8D6E63', // Коричневый для веба
+        },
+        default: {}
+    }) as ViewStyle,
+
     quantityButtonSmall: {
         width: 32,
         height: 32,
@@ -567,6 +767,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     } as ViewStyle,
+
+    webQuantityButtonSmall: Platform.select({
+        web: {
+            backgroundColor: '#8D6E63', // Коричневый для веба
+        },
+        default: {}
+    }) as ViewStyle,
 
     quantityButtonDisabled: {
         backgroundColor: '#cccccc',
@@ -587,6 +794,13 @@ const styles = StyleSheet.create({
         color: '#333',
     } as TextStyle,
 
+    webQuantityValue: Platform.select({
+        web: {
+            color: '#5D4037', // Темно-коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
+
     quantityValueSmall: {
         fontSize: 16,
         fontWeight: 'bold',
@@ -596,6 +810,13 @@ const styles = StyleSheet.create({
         color: '#333',
     } as TextStyle,
 
+    webQuantityValueSmall: Platform.select({
+        web: {
+            color: '#5D4037', // Темно-коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
+
     removeButton: {
         width: 24,
         height: 24,
@@ -604,6 +825,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     } as ViewStyle,
+
+    webRemoveButton: Platform.select({
+        web: {
+            backgroundColor: '#FFE0B2', // Светло-оранжевый для веба
+        },
+        default: {}
+    }) as ViewStyle,
 
     removeButtonSmall: {
         width: 32,
@@ -615,11 +843,25 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     } as ViewStyle,
 
+    webRemoveButtonSmall: Platform.select({
+        web: {
+            backgroundColor: '#FFE0B2', // Светло-оранжевый для веба
+        },
+        default: {}
+    }) as ViewStyle,
+
     removeButtonText: {
         fontSize: 14,
         color: '#d32f2f',
         fontWeight: 'bold',
     } as TextStyle,
+
+    webRemoveButtonText: Platform.select({
+        web: {
+            color: '#5D4037', // Темно-коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
 
     menuItemCard: {
         backgroundColor: '#f8f9fa',
@@ -630,6 +872,15 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'flex-start',
     } as ViewStyle,
+
+    webMenuItemCard: Platform.select({
+        web: {
+            backgroundColor: '#FFF8F0',
+            borderWidth: 1,
+            borderColor: '#F5E6D3',
+        },
+        default: {}
+    }) as ViewStyle,
 
     menuItemInfo: {
         flex: 1,
@@ -643,6 +894,13 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     } as TextStyle,
 
+    webMenuItemName: Platform.select({
+        web: {
+            color: '#5D4037', // Темно-коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
+
     menuItemPrice: {
         fontSize: 16,
         fontWeight: 'bold',
@@ -650,10 +908,24 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     } as TextStyle,
 
+    webMenuItemPrice: Platform.select({
+        web: {
+            color: '#8D6E63', // Коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
+
     menuItemDescription: {
         fontSize: 14,
         color: '#666',
     } as TextStyle,
+
+    webMenuItemDescription: Platform.select({
+        web: {
+            color: '#8D6E63', // Коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
 
     itemControl: {
         flexDirection: 'row',
@@ -668,6 +940,13 @@ const styles = StyleSheet.create({
         padding: 4,
     } as ViewStyle,
 
+    webQuantityControlsSmall: Platform.select({
+        web: {
+            backgroundColor: '#FFF8F0',
+        },
+        default: {}
+    }) as ViewStyle,
+
     emptyState: {
         backgroundColor: '#f8f9fa',
         padding: 20,
@@ -675,12 +954,28 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     } as ViewStyle,
 
+    webEmptyState: Platform.select({
+        web: {
+            backgroundColor: '#FFF8F0',
+            borderWidth: 1,
+            borderColor: '#F5E6D3',
+        },
+        default: {}
+    }) as ViewStyle,
+
     emptyStateText: {
         fontSize: 16,
         color: '#666',
         textAlign: 'center',
         fontStyle: 'italic',
     } as TextStyle,
+
+    webEmptyStateText: Platform.select({
+        web: {
+            color: '#8D6E63', // Коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
 
     commentInput: {
         borderWidth: 1,
@@ -695,6 +990,15 @@ const styles = StyleSheet.create({
         textAlignVertical: 'top',
     } as TextStyle,
 
+    webCommentInput: Platform.select({
+        web: {
+            backgroundColor: '#FFF8F0',
+            borderColor: '#F5E6D3',
+            color: '#5D4037',
+        },
+        default: {}
+    }) as TextStyle,
+
     totalSection: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -705,11 +1009,25 @@ const styles = StyleSheet.create({
         marginTop: 8,
     } as ViewStyle,
 
+    webTotalSection: Platform.select({
+        web: {
+            borderTopColor: '#F5E6D3',
+        },
+        default: {}
+    }) as ViewStyle,
+
     totalLabel: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#333',
     } as TextStyle,
+
+    webTotalLabel: Platform.select({
+        web: {
+            color: '#5D4037', // Темно-коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
 
     totalPrice: {
         fontSize: 20,
@@ -717,12 +1035,27 @@ const styles = StyleSheet.create({
         color: '#2E7D32',
     } as TextStyle,
 
+    webTotalPrice: Platform.select({
+        web: {
+            color: '#8D6E63', // Коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
+
     footer: {
         paddingHorizontal: 20,
         paddingVertical: 15,
         borderTopWidth: 1,
         borderTopColor: '#f0f0f0',
     } as ViewStyle,
+
+    webFooter: Platform.select({
+        web: {
+            borderTopColor: '#F5E6D3',
+            backgroundColor: '#FFF8F0',
+        },
+        default: {}
+    }) as ViewStyle,
 
     orderButton: {
         backgroundColor: '#2E7D32',
@@ -744,6 +1077,7 @@ const styles = StyleSheet.create({
     webOrderButton: Platform.select({
         web: {
             cursor: 'pointer',
+            backgroundColor: '#8D6E63', // Коричневый для веба
         },
         default: {}
     }) as ViewStyle,
@@ -761,4 +1095,11 @@ const styles = StyleSheet.create({
         color: '#2E7D32',
         fontWeight: '500',
     } as TextStyle,
+
+    webLoadingText: Platform.select({
+        web: {
+            color: '#8D6E63', // Коричневый для веба
+        },
+        default: {}
+    }) as TextStyle,
 });
