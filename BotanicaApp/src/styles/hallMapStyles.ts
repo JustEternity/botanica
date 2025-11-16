@@ -527,4 +527,18 @@ export const hallMapStyles = StyleSheet.create({
     marginVertical: 10,
     marginHorizontal: 'auto',
   },
+  errorSection: {
+    backgroundColor: '#ffebee',
+    padding: 12,
+    borderRadius: 8,
+    margin: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f44336',
+  },
+  errorText: {
+    color: '#d32f2f',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
 });
