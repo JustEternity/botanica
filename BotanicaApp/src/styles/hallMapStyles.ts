@@ -493,4 +493,38 @@ export const hallMapStyles = StyleSheet.create({
     marginTop: 2,
     textAlign: 'center',
   },
+
+  contentWeb: {
+    flex: 1,
+    padding: 16,
+    alignItems: 'center',
+  },
+
+  mapWrapperWeb: {
+    width: '100%',
+    alignItems: 'flex-end', // Выравниваем карту по правому краю контейнера
+    justifyContent: 'center',
+    paddingRight: '10%', // Смещаем карту вправо на 10% от ширины экрана
+  },
+
+  mapContainerWeb: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    overflow: 'hidden',
+    position: 'relative',
+    marginHorizontal: 'auto',
+    width: '100%', // Ограничиваем ширину
+    maxWidth: 600, // Максимальная ширина
+    height: 600, // Немного увеличиваем высоту для веба
+
+    marginRight: 'auto', // Автоматический отступ справа
+  },
+  mapWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    marginVertical: 10,
+    marginHorizontal: 'auto',
+  },
 });

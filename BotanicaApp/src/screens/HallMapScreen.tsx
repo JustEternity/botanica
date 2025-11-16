@@ -86,6 +86,12 @@ const webDatePickerStyles = `
   .react-datepicker__time-box {
     width: 100% !important;
   }
+    .map-container-web {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
 `;
 
 // Тип для события DateTimePicker
@@ -847,9 +853,9 @@ export default function HallMapScreen() {
 
   const handleResetMap = () => {
     setTransform(applyBounds({
-      scale: 1,
-      translateX: 0,
-      translateY: 0,
+      scale: 0.55,
+      translateX: -100,
+      translateY: -50,
     }));
   };
 
@@ -904,8 +910,11 @@ export default function HallMapScreen() {
 
   return (
     <View style={hallMapStyles.container}>
-      <View style={hallMapStyles.content}>
-        {/* Панель выбора времени */}
+      <View style={[
+          hallMapStyles.content,
+          isWeb && hallMapStyles.content
+        ]}>
+        {/* Панель выбора времени - ПЕРЕНЕСЕНА ВВЕРХ */}
         <View style={hallMapStyles.timeSelectionPanel}>
           <Text style={hallMapStyles.timeSelectionTitle}>Время бронирования</Text>
           <Text style={hallMapStyles.timeRestrictionText}>Доступно с 12:00 до 04:00 следующего дня</Text>
@@ -1046,69 +1055,74 @@ export default function HallMapScreen() {
           )}
         </View>
 
-        {/* Карта зала */}
-        <View
-          style={[
-            hallMapStyles.mapContainer,
-            Platform.OS === 'android' && hallMapStyles.mapContainerAndroid
-          ]}
-          {...panResponder.panHandlers}
-        >
+        {/* Карта зала - ПЕРЕНЕСЕНА ПОД ПАНЕЛЬ ВЫБОРА ВРЕМЕНИ */}
+        <View style={hallMapStyles.mapWrapper}>
           <View
             style={[
-              hallMapStyles.transformContainer,
-              {
-                transform: [
-                  { translateX: transform.translateX },
-                  { translateY: transform.translateY },
-                  { scale: transform.scale }
-                ]
-              }
+              hallMapStyles.mapContainer,
+              Platform.OS === 'android' && hallMapStyles.mapContainerAndroid,
+              isWeb && hallMapStyles.mapContainerWeb
             ]}
+            {...panResponder.panHandlers}
+            {...(isWeb && { className: "map-container-web" })}
           >
-            <ImageBackground
-              source={require('../../assets/Map.png')}
-              style={hallMapStyles.mapBackground}
-              resizeMode="cover"
+            <View
+              style={[
+                hallMapStyles.transformContainer,
+                {
+                  transform: [
+                    { translateX: transform.translateX },
+                    { translateY: transform.translateY },
+                    { scale: transform.scale }
+                  ]
+                }
+              ]}
             >
-              <View style={hallMapStyles.tablesContainer}>
-                {tables.map(renderTable)}
-              </View>
-            </ImageBackground>
-          </View>
+              <ImageBackground
+                source={require('../../assets/Map.png')}
+                style={hallMapStyles.mapBackground}
+                resizeMode="cover"
+              >
+                <View style={hallMapStyles.tablesContainer}>
+                  {tables.map(renderTable)}
+                </View>
+              </ImageBackground>
+            </View>
 
-          <View style={hallMapStyles.controlsOverlay}>
-            <View style={hallMapStyles.zoomControlsOverlay}>
+            <View style={hallMapStyles.controlsOverlay}>
+              <View style={hallMapStyles.zoomControlsOverlay}>
+                <TouchableOpacity
+                  style={hallMapStyles.zoomButtonOverlay}
+                  onPress={handleZoomIn}
+                  activeOpacity={0.7}
+                >
+                  <Text style={hallMapStyles.zoomButtonText}>+</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={hallMapStyles.zoomButtonOverlay}
+                  onPress={handleZoomOut}
+                  activeOpacity={0.7}
+                >
+                  <Text style={hallMapStyles.zoomButtonText}>-</Text>
+                </TouchableOpacity>
+              </View>
+
               <TouchableOpacity
-                style={hallMapStyles.zoomButtonOverlay}
-                onPress={handleZoomIn}
+                style={hallMapStyles.resetButtonOverlay}
+                onPress={handleResetMap}
                 activeOpacity={0.7}
               >
-                <Text style={hallMapStyles.zoomButtonText}>+</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={hallMapStyles.zoomButtonOverlay}
-                onPress={handleZoomOut}
-                activeOpacity={0.7}
-              >
-                <Text style={hallMapStyles.zoomButtonText}>-</Text>
+                <Text style={hallMapStyles.resetButtonText}>⟲ Сброс</Text>
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={hallMapStyles.resetButtonOverlay}
-              onPress={handleResetMap}
-              activeOpacity={0.7}
-            >
-              <Text style={hallMapStyles.resetButtonText}>⟲ Сброс</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={hallMapStyles.scaleInfoOverlay}>
-            <Text style={hallMapStyles.scaleText}>Масштаб: {Math.round(transform.scale * 100)}%</Text>
+            <View style={hallMapStyles.scaleInfoOverlay}>
+              <Text style={hallMapStyles.scaleText}>Масштаб: {Math.round(transform.scale * 100)}%</Text>
+            </View>
           </View>
         </View>
 
+        {/* Легенда остается на своем месте */}
         <View style={hallMapStyles.legend}>
           <View style={hallMapStyles.legendItem}>
             <View style={[hallMapStyles.legendColor, hallMapStyles.available]} />
@@ -1125,6 +1139,7 @@ export default function HallMapScreen() {
         </View>
       </View>
 
+      {/* Остальные компоненты остаются без изменений */}
       <CartModal
         visible={cartModalVisible}
         onClose={handleCloseCart}
