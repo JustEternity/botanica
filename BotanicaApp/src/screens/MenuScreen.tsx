@@ -175,6 +175,15 @@ const MenuItemComponent: React.FC<{
     onLongPress(item);
   }, [item, onLongPress]);
 
+  // Обработчик контекстного меню для веба
+  const handleContextMenu = useCallback((e: any) => {
+    if (Platform.OS === 'web') {
+      e.preventDefault();
+      e.stopPropagation();
+      onLongPress(item);
+    }
+  }, [item, onLongPress]);
+
   const isAdmin = user?.role === 'admin';
 
   // Используем разные стили в зависимости от layout
@@ -208,11 +217,30 @@ const MenuItemComponent: React.FC<{
         onLongPress={handleLongPress}
         activeOpacity={0.7}
         delayLongPress={500}
+        // Добавляем обработчик контекстного меню для веба
+        {...(Platform.OS === 'web' ? {
+          onContextMenu: handleContextMenu
+        } : {})}
       >
         {isAdmin && item.is_available === false && (
           <View style={styles.hiddenIndicator}>
             <Text style={styles.hiddenIndicatorText}>Скрыто</Text>
           </View>
+        )}
+
+        {/* Добавляем область для контекстного меню на вебе */}
+        {Platform.OS === 'web' && isAdmin && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 5,
+            }}
+            onContextMenu={handleContextMenu}
+          />
         )}
 
         <View style={imageContainerStyle}>
@@ -243,7 +271,6 @@ const MenuItemComponent: React.FC<{
               style={[
                 menuStyles.itemName,
                 isGridLayout && styles.gridItemName,
-                // Добавляем inline стиль для гарантии
                 isGridLayout && { textAlign: 'left' }
               ]}
               numberOfLines={isGridLayout ? 2 : 1}
@@ -254,7 +281,6 @@ const MenuItemComponent: React.FC<{
               style={[
                 menuStyles.itemPrice,
                 isGridLayout && styles.gridItemPrice,
-                // Добавляем inline стиль для гарантии
                 isGridLayout && { textAlign: 'right' }
               ]}
             >
@@ -265,7 +291,6 @@ const MenuItemComponent: React.FC<{
             style={[
               menuStyles.itemDescription,
               isGridLayout && styles.gridItemDescription,
-              // Добавляем inline стиль для гарантии
               isGridLayout && { textAlign: 'left' }
             ]}
             numberOfLines={isGridLayout ? 3 : 2}
@@ -285,6 +310,20 @@ const MenuItemComponent: React.FC<{
       >
         <Text style={styles.plusButtonText}>+</Text>
       </TouchableOpacity>
+
+      {/* Добавляем кнопку меню для админов на вебе */}
+      {Platform.OS === 'web' && isAdmin && (
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={(e: any) => {
+            e.stopPropagation();
+            onLongPress(item);
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.menuButtonText}>⋮</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }, (prevProps, nextProps) => {
@@ -344,6 +383,9 @@ export default function MenuScreen() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [cartModalVisible, setCartModalVisible] = useState(false);
+
+  // Добавляем состояние для веб-контекстного меню
+  const [webContextMenuVisible, setWebContextMenuVisible] = useState(false);
 
   const categoriesRef = useRef<FlatList>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -691,21 +733,30 @@ export default function MenuScreen() {
     refreshTables();
   }, [refreshTables]);
 
+  // Обновленный обработчик long press для всех платформ
   const handleLongPress = useCallback((item: MenuItem) => {
     if (isAdmin) {
       setSelectedContextItem({...item});
 
       if (Platform.OS === 'ios') {
         // iOS контекстное меню
-      } else {
+      } else if (Platform.OS === 'android') {
         setContextMenuVisible(true);
+      } else if (Platform.OS === 'web') {
+        setWebContextMenuVisible(true);
       }
     }
   }, [isAdmin]);
 
+  // Обновленный обработчик действий контекстного меню
   const handleContextMenuAction = useCallback(async (action: ContextMenuAction, item: MenuItem) => {
+    // Закрываем все меню
     if (Platform.OS === 'ios') {
       setSelectedContextItem(null);
+    } else if (Platform.OS === 'android') {
+      setContextMenuVisible(false);
+    } else if (Platform.OS === 'web') {
+      setWebContextMenuVisible(false);
     }
 
     switch (action) {
@@ -739,10 +790,7 @@ export default function MenuScreen() {
         break;
     }
 
-    if (Platform.OS === 'android') {
-      setContextMenuVisible(false);
-      setSelectedContextItem(null);
-    }
+    setSelectedContextItem(null);
   }, [loadMenuData]);
 
   const handleSaveItem = useCallback(async (itemData: MenuItem) => {
@@ -759,6 +807,12 @@ export default function MenuScreen() {
   }, []);
 
   const handleIOSActionSheetCancel = useCallback(() => {
+    setSelectedContextItem(null);
+  }, []);
+
+  // Добавляем обработчик закрытия веб-меню
+  const handleCloseWebContextMenu = useCallback(() => {
+    setWebContextMenuVisible(false);
     setSelectedContextItem(null);
   }, []);
 
@@ -1021,6 +1075,17 @@ export default function MenuScreen() {
           onAction={handleContextMenuAction}
         />
       )}
+
+      {/* Веб-контекстное меню */}
+      {Platform.OS === 'web' && (
+        <ContextMenu
+          item={selectedContextItem}
+          onAction={handleContextMenuAction}
+          onCancel={handleCloseWebContextMenu}
+          visible={webContextMenuVisible}
+          onClose={handleCloseWebContextMenu}
+        />
+      )}
     </View>
   );
 }
@@ -1277,5 +1342,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
+  },
+  menuButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  menuButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: -4,
   },
 });
