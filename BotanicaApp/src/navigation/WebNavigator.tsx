@@ -9,10 +9,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import WebHomeScreen, { WebHeader } from '../screens/WebHomeScreen';
 import MenuScreen from '../screens/MenuScreen'; 
 import WebProfileScreen from '../screens/WebProfileScreen';
-import AboutScreen from '../screens/AboutScreen';
 import HallMapScreen from '../screens/HallMapScreen';
 import TableReservationModal from '../screens/TableReservationScreen';
 import OrderHistoryScreen from '../screens/OrdersHistoryScreen';
+import WebAboutScreen from '../screens/WebAboutScreen'; // Добавлен импорт WebAboutScreen
 
 const Stack = createNativeStackNavigator();
 
@@ -47,7 +47,7 @@ function AboutScreenWrapper({ navigation }: any) {
   return (
     <View style={{ flex: 1, backgroundColor: '#0a1f0a' }}>
       <WebHeader navigation={navigation} currentScreen="About" />
-      <AboutScreen />
+      <WebAboutScreen navigation={navigation} /> {/* Изменено на WebAboutScreen */}
     </View>
   );
 }
