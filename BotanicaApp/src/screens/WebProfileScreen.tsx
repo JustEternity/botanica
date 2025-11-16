@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,17 @@ import {
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import RegisterModal from '../components/RegisterModal';
+import { ApiService } from '../services/api';
+import { getOptimizedImageUrl } from '../utils/imageUtils';
 
 const defaultAvatar = require('../../assets/default-avatar.jpg');
 
 interface WebProfileScreenProps {
   navigation: any;
 }
+
+// Глобальная переменная для отслеживания версии фото
+let globalPhotoVersion = 0;
 
 export default function WebProfileScreen({ navigation }: WebProfileScreenProps) {
   const { user, login, register, logout, isLoading } = useAuth();
@@ -26,7 +31,174 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
   const [isLoginLoading, setIsLoginLoading] = useState(false);
   const [registerModalVisible, setRegisterModalVisible] = useState(false);
   const [isPhotoLoading, setIsPhotoLoading] = useState(false);
+  const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null);
+  const [photoVersion, setPhotoVersion] = useState(0);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Обновление фото при изменении пользователя
+  useEffect(() => {
+    if (user?.cloudinary_url) {
+      updatePhotoFromServer(user.cloudinary_url);
+    } else {
+      // Проверяем локальное хранилище
+      loadLocalPhoto();
+    }
+  }, [user?.cloudinary_url]);
+
+  // Загрузка локально сохраненного фото при монтировании
+  const loadLocalPhoto = () => {
+    try {
+      const localPhoto = localStorage.getItem('user_profile_photo');
+      if (localPhoto && localPhoto.startsWith('data:image')) {
+        // Очищаем data URL от возможных пробелов
+        const cleanedPhoto = localPhoto.replace(/\s/g, '');
+        setLocalPhotoUrl(cleanedPhoto);
+        console.log('📸 Загружено локально сохраненное фото');
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки локального фото:', error);
+    }
+  };
+
+  const updatePhotoFromServer = (cloudinaryUrl: string) => {
+    if (!cloudinaryUrl) {
+      setLocalPhotoUrl(null);
+      return;
+    }
+
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 15);
+    const optimizedUrl = getOptimizedImageUrl(cloudinaryUrl, 200, 200);
+    const freshUrl = `${optimizedUrl}${optimizedUrl.includes('?') ? '&' : '?'}_t=${timestamp}&r=${random}&v=${++globalPhotoVersion}`;
+    
+    setLocalPhotoUrl(freshUrl);
+    setPhotoVersion(globalPhotoVersion);
+  };
+
+  // Функция для очистки пробелов в data URL
+  const cleanDataUrl = (dataUrl: string): string => {
+    return dataUrl.replace(/\s/g, '');
+  };
+
+  // Функция для обработки выбора файла
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Проверка типа файла
+    if (!file.type.startsWith('image/')) {
+      window.alert('Ошибка: Пожалуйста, выберите файл изображения');
+      return;
+    }
+
+    // Проверка размера файла (максимум 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      window.alert('Ошибка: Размер файла не должен превышать 5MB');
+      return;
+    }
+
+    // Передаем File объект напрямую
+    handlePhotoUpload(file);
+    
+    // Сбрасываем значение input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handlePhotoUpload = async (file: File) => {
+    setIsPhotoLoading(true);
+    
+    try {
+      // Конвертируем File в base64 для локального хранения и отображения
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          // Очищаем data URL от пробелов
+          const cleanedBase64 = cleanDataUrl(reader.result as string);
+          resolve(cleanedBase64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      
+      // Устанавливаем очищенный data URL для отображения
+      setLocalPhotoUrl(base64);
+      setPhotoVersion(++globalPhotoVersion);
+      
+      // Сохраняем в localStorage
+      localStorage.setItem('user_profile_photo', base64);
+      console.log('✅ Фото сохранено локально');
+      
+    } catch (error) {
+      console.error('Ошибка загрузки фото:', error);
+      window.alert('Ошибка: Не удалось обновить фото профиля');
+      
+      // Восстанавливаем предыдущее состояние
+      if (user?.cloudinary_url) {
+        updatePhotoFromServer(user.cloudinary_url);
+      } else {
+        setLocalPhotoUrl(null);
+      }
+    } finally {
+      setIsPhotoLoading(false);
+    }
+  };
+
+  const handlePhotoRemove = async () => {
+      setIsPhotoLoading(true);
+      
+      try {
+        // Оптимистичное обновление - сразу убираем фото
+        setLocalPhotoUrl(null);
+        
+        // Удаляем из локального хранилища
+        localStorage.removeItem('user_profile_photo');
+        
+        // Пробуем удалить с сервера (если есть такая возможность)
+        if (user?.cloudinary_url) {
+          try {
+            await ApiService.removeProfilePhoto();
+          } catch (serverError) {
+            console.log('Серверное удаление не удалось, но локальное фото удалено:', serverError);
+          }
+        }
+        
+      } catch (error) {
+        console.error('Ошибка удаления фото профиля:', error);
+        
+        // Восстанавливаем предыдущее состояние
+        if (user?.cloudinary_url) {
+          updatePhotoFromServer(user.cloudinary_url);
+        } else {
+          loadLocalPhoto();
+        }
+        
+        window.alert('Ошибка: Не удалось удалить фото профиля');
+      } finally {
+        setIsPhotoLoading(false);
+      }
+  };
+
+  const handlePhotoPress = () => {
+    if (!user || isPhotoLoading) {
+      return;
+    }
+
+    // Для веба показываем диалог выбора файла
+    fileInputRef.current?.click();
+  };
+
+  const handlePhotoAction = (action: 'change' | 'remove') => {
+    if (action === 'change') {
+      fileInputRef.current?.click();
+    } else if (action === 'remove') {
+      handlePhotoRemove();
+    }
+  };
+
+  // Остальные функции без изменений...
   const handlePhoneChange = (text: string) => {
     if (!text.startsWith('+7')) {
       setPhone('+7');
@@ -89,17 +261,16 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
   };
 
   const handleLogout = () => {
-    console.log('Выход из аккаунта');
-    logout();
-    navigation.navigate('Home');
+    if (window.confirm('Вы уверены, что хотите выйти?')) {
+      console.log('Выход из аккаунта');
+      // Не сбрасываем localPhotoUrl, чтобы фото сохранялось для будущих входов
+      logout();
+      navigation.navigate('Home');
+    }
   };
 
   const handleOrderHistory = () => {
     navigation.navigate('OrderHistory');
-  };
-
-  const handlePhotoPress = () => {
-    window.alert('Фото профиля: В веб-версии функция изменения фото будет добавлена позже');
   };
 
   const openRegisterModal = () => {
@@ -123,6 +294,15 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
 
   return (
     <View style={styles.container}>
+      {/* Скрытый input для выбора файла */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        style={{ display: 'none' }}
+        accept="image/*"
+        onChange={handleFileSelect}
+      />
+      
       <ScrollView 
         style={styles.scrollView} 
         showsVerticalScrollIndicator={false}
@@ -133,19 +313,23 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
             <View style={styles.profileContainer}>
               <Text style={styles.authTitle}>Мой профиль</Text>
               
-              <TouchableOpacity
-                style={styles.photoContainer}
-                onPress={handlePhotoPress}
-                disabled={isPhotoLoading}
-              >
-                <View style={styles.photoWrapper}>
+              <View style={styles.photoContainer}>
+                <TouchableOpacity
+                  style={styles.photoWrapper}
+                  onPress={handlePhotoPress}
+                  disabled={isPhotoLoading}
+                >
                   <View style={styles.photoMainContainer}>
                     <View style={styles.photoWithOverlay}>
                       <Image
-                        source={user.cloudinary_url ? { uri: user.cloudinary_url } : defaultAvatar}
+                        source={localPhotoUrl ? { uri: localPhotoUrl } : defaultAvatar}
                         style={styles.photo}
-                        onError={() => {
-                          console.log('Ошибка загрузки фото');
+                        key={`photo-${photoVersion}`}
+                        onError={(e) => {
+                          console.log('Ошибка загрузки изображения:', e.nativeEvent.error);
+                          console.log('URL который не загрузился:', localPhotoUrl?.substring(0, 100));
+                          // При ошибке загрузки используем аватар по умолчанию
+                          setLocalPhotoUrl(null);
                         }}
                       />
                       
@@ -163,8 +347,26 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
                       </View>
                     )}
                   </View>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+
+                {/* Кнопки действий с фото для веба */}
+                {!isPhotoLoading && (user.cloudinary_url || localPhotoUrl) && (
+                  <View style={styles.photoActions}>
+                    <TouchableOpacity
+                      style={styles.photoActionButton}
+                      onPress={() => handlePhotoAction('change')}
+                    >
+                      <Text style={styles.photoActionText}>Изменить</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.photoActionButton, styles.removeButton]}
+                      onPress={() => handlePhotoAction('remove')}
+                    >
+                      <Text style={styles.photoActionText}>Удалить</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
 
               <View style={styles.userInfo}>
                 <Text style={styles.userName}>{user.name}</Text>
@@ -277,6 +479,7 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
   );
 }
 
+// Стили остаются без изменений...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -371,6 +574,25 @@ const styles = StyleSheet.create({
   },
   editPhotoText: {
     fontSize: 16,
+  },
+  photoActions: {
+    flexDirection: 'row',
+    marginTop: 15,
+    gap: 10,
+  },
+  photoActionButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  removeButton: {
+    backgroundColor: '#d32f2f',
+  },
+  photoActionText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   authTitle: {
     fontSize: 32,
