@@ -771,14 +771,32 @@ export const uploadProfilePhotoDirectly = async (imageUri: string): Promise<{ su
     // 2. Прямая загрузка в Cloudinary
     console.log('☁️ Загрузка в Cloudinary...');
     const formData = new FormData();
-    const filename = imageUri.split('/').pop() || 'upload.jpg';
-    const fileType = filename.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
 
-    formData.append('file', {
-      uri: imageUri,
-      type: fileType,
-      name: filename,
-    } as any);
+    // Для веба: imageUri может быть blob URL, нам нужно преобразовать его в File
+    let file: File;
+
+    if (imageUri.startsWith('blob:')) {
+      // Это blob URL с веба - получаем File из него
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      file = new File([blob], 'profile_photo.jpg', { type: 'image/jpeg' });
+    } else {
+      // Это URI с мобильного устройства
+      const filename = imageUri.split('/').pop() || 'upload.jpg';
+      const fileType = filename.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+
+      // Для React Native используем специальный формат
+      formData.append('file', {
+        uri: imageUri,
+        type: fileType,
+        name: filename,
+      } as any);
+    }
+
+    // Для веба используем File объект
+    if (file!) {
+      formData.append('file', file);
+    }
 
     formData.append('timestamp', signatureData.timestamp.toString());
     formData.append('signature', signatureData.signature);
@@ -797,12 +815,11 @@ export const uploadProfilePhotoDirectly = async (imageUri: string): Promise<{ su
     });
 
     const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${signatureData.cloud_name}/image/upload`;
+
+    // Убираем явный Content-Type для FormData - браузер сам установит правильный
     const response = await fetch(cloudinaryUrl, {
       method: 'POST',
       body: formData,
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
     });
 
     if (!response.ok) {
@@ -831,11 +848,11 @@ export const uploadProfilePhotoDirectly = async (imageUri: string): Promise<{ su
         cloudinary_public_id: result.public_id,
         cloudinary_url: result.secure_url
       }),
-    })
+    });
+
     console.log('📡 Ответ сервера:', {
       status: updateResponse.status,
       statusText: updateResponse.statusText,
-      headers: Object.fromEntries(updateResponse.headers.entries())
     });
 
     // Проверяем Content-Type перед парсингом

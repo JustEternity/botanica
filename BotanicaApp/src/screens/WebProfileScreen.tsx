@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import RegisterModal from '../components/RegisterModal';
-import { ApiService } from '../services/api';
+import { ApiService, uploadProfilePhotoDirectly } from '../services/api';
 import { getOptimizedImageUrl } from '../utils/imageUtils';
 
 const defaultAvatar = require('../../assets/default-avatar.jpg');
@@ -33,31 +33,34 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
   const [isPhotoLoading, setIsPhotoLoading] = useState(false);
   const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null);
   const [photoVersion, setPhotoVersion] = useState(0);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMountedRef = useRef(true);
+  const currentOperationIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    initializePhotoState();
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Обновление фото при изменении пользователя
   useEffect(() => {
     if (user?.cloudinary_url) {
       updatePhotoFromServer(user.cloudinary_url);
     } else {
-      // Проверяем локальное хранилище
-      loadLocalPhoto();
+      setLocalPhotoUrl(null);
     }
   }, [user?.cloudinary_url]);
 
-  // Загрузка локально сохраненного фото при монтировании
-  const loadLocalPhoto = () => {
-    try {
-      const localPhoto = localStorage.getItem('user_profile_photo');
-      if (localPhoto && localPhoto.startsWith('data:image')) {
-        // Очищаем data URL от возможных пробелов
-        const cleanedPhoto = localPhoto.replace(/\s/g, '');
-        setLocalPhotoUrl(cleanedPhoto);
-        console.log('📸 Загружено локально сохраненное фото');
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки локального фото:', error);
+  const initializePhotoState = () => {
+    if (user?.cloudinary_url) {
+      updatePhotoFromServer(user.cloudinary_url);
+    } else {
+      setLocalPhotoUrl(null);
     }
   };
 
@@ -71,14 +74,15 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
     const random = Math.random().toString(36).substring(2, 15);
     const optimizedUrl = getOptimizedImageUrl(cloudinaryUrl, 200, 200);
     const freshUrl = `${optimizedUrl}${optimizedUrl.includes('?') ? '&' : '?'}_t=${timestamp}&r=${random}&v=${++globalPhotoVersion}`;
-    
+
     setLocalPhotoUrl(freshUrl);
     setPhotoVersion(globalPhotoVersion);
   };
 
-  // Функция для очистки пробелов в data URL
-  const cleanDataUrl = (dataUrl: string): string => {
-    return dataUrl.replace(/\s/g, '');
+  const generateFreshPhotoUrl = (baseUrl: string): string => {
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 15);
+    return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}_t=${timestamp}&r=${random}&v=${++globalPhotoVersion}`;
   };
 
   // Функция для обработки выбора файла
@@ -100,7 +104,7 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
 
     // Передаем File объект напрямую
     handlePhotoUpload(file);
-    
+
     // Сбрасываем значение input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -109,76 +113,85 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
 
   const handlePhotoUpload = async (file: File) => {
     setIsPhotoLoading(true);
-    
+    const operationId = Date.now().toString();
+    currentOperationIdRef.current = operationId;
+
     try {
-      // Конвертируем File в base64 для локального хранения и отображения
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          // Очищаем data URL от пробелов
-          const cleanedBase64 = cleanDataUrl(reader.result as string);
-          resolve(cleanedBase64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      
-      // Устанавливаем очищенный data URL для отображения
-      setLocalPhotoUrl(base64);
-      setPhotoVersion(++globalPhotoVersion);
-      
-      // Сохраняем в localStorage
-      localStorage.setItem('user_profile_photo', base64);
-      console.log('✅ Фото сохранено локально');
-      
+      // Создаем временный URL для предпросмотра (оптимистичное обновление)
+      const objectUrl = URL.createObjectURL(file);
+      const freshLocalUrl = generateFreshPhotoUrl(objectUrl);
+      setLocalPhotoUrl(freshLocalUrl);
+      setPhotoVersion(globalPhotoVersion);
+
+      // Загружаем фото на сервер через API (как в мобильной версии)
+      const uploadResponse = await uploadProfilePhotoDirectly(objectUrl);
+
+      // Освобождаем временный URL
+      URL.revokeObjectURL(objectUrl);
+
+      if (uploadResponse && uploadResponse.user?.cloudinary_url) {
+        // Обновляем фото с серверным URL
+        const freshServerUrl = generateFreshPhotoUrl(uploadResponse.user.cloudinary_url);
+
+        if (isMountedRef.current && currentOperationIdRef.current === operationId) {
+          setLocalPhotoUrl(freshServerUrl);
+          setPhotoVersion(globalPhotoVersion);
+        }
+
+        window.alert('Фото профиля обновлено');
+      }
     } catch (error) {
       console.error('Ошибка загрузки фото:', error);
-      window.alert('Ошибка: Не удалось обновить фото профиля');
-      
-      // Восстанавливаем предыдущее состояние
-      if (user?.cloudinary_url) {
-        updatePhotoFromServer(user.cloudinary_url);
-      } else {
-        setLocalPhotoUrl(null);
-      }
-    } finally {
-      setIsPhotoLoading(false);
-    }
-  };
-
-  const handlePhotoRemove = async () => {
-      setIsPhotoLoading(true);
-      
-      try {
-        // Оптимистичное обновление - сразу убираем фото
-        setLocalPhotoUrl(null);
-        
-        // Удаляем из локального хранилища
-        localStorage.removeItem('user_profile_photo');
-        
-        // Пробуем удалить с сервера (если есть такая возможность)
-        if (user?.cloudinary_url) {
-          try {
-            await ApiService.removeProfilePhoto();
-          } catch (serverError) {
-            console.log('Серверное удаление не удалось, но локальное фото удалено:', serverError);
-          }
-        }
-        
-      } catch (error) {
-        console.error('Ошибка удаления фото профиля:', error);
-        
+      if (isMountedRef.current && currentOperationIdRef.current === operationId) {
         // Восстанавливаем предыдущее состояние
         if (user?.cloudinary_url) {
           updatePhotoFromServer(user.cloudinary_url);
         } else {
-          loadLocalPhoto();
+          setLocalPhotoUrl(null);
         }
-        
-        window.alert('Ошибка: Не удалось удалить фото профиля');
-      } finally {
-        setIsPhotoLoading(false);
+        window.alert('Ошибка: Не удалось обновить фото профиля');
       }
+    } finally {
+      if (isMountedRef.current && currentOperationIdRef.current === operationId) {
+        setIsPhotoLoading(false);
+        currentOperationIdRef.current = null;
+      }
+    }
+  };
+
+  const handlePhotoRemove = async () => {
+    if (!window.confirm('Вы уверены, что хотите удалить фото профиля?')) {
+      return;
+    }
+
+    setIsPhotoLoading(true);
+    const operationId = Date.now().toString();
+    currentOperationIdRef.current = operationId;
+
+    try {
+      // Оптимистичное обновление - сразу убираем фото
+      setLocalPhotoUrl(null);
+
+      await ApiService.removeProfilePhoto();
+
+      if (isMountedRef.current && currentOperationIdRef.current === operationId) {
+        window.alert('Фото профиля удалено');
+      }
+    } catch (error) {
+      console.error('Ошибка удаления фото профиля:', error);
+      if (isMountedRef.current && currentOperationIdRef.current === operationId) {
+        // Восстанавливаем предыдущее состояние
+        if (user?.cloudinary_url) {
+          updatePhotoFromServer(user.cloudinary_url);
+        }
+        window.alert('Ошибка: Не удалось удалить фото профиля');
+      }
+    } finally {
+      if (isMountedRef.current && currentOperationIdRef.current === operationId) {
+        setIsPhotoLoading(false);
+        currentOperationIdRef.current = null;
+      }
+    }
   };
 
   const handlePhotoPress = () => {
@@ -239,9 +252,9 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
       }
     } catch (error: any) {
       console.error('Ошибка при входе:', error);
-      
+
       let errorMessage = 'Произошла ошибка при входе';
-      
+
       if (error.message?.includes('401') || error.message?.includes('неверный')) {
         errorMessage = 'Неверный номер телефона или пароль';
       } else if (error.message?.includes('404') || error.message?.includes('не найден')) {
@@ -249,7 +262,7 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
       } else if (error.message?.includes('сеть') || error.message?.includes('network')) {
         errorMessage = 'Проблемы с подключением к интернету';
       }
-      
+
       window.alert(`Ошибка входа: ${errorMessage}`);
     } finally {
       setIsLoginLoading(false);
@@ -263,7 +276,9 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
   const handleLogout = () => {
     if (window.confirm('Вы уверены, что хотите выйти?')) {
       console.log('Выход из аккаунта');
-      // Не сбрасываем localPhotoUrl, чтобы фото сохранялось для будущих входов
+      setLocalPhotoUrl(null);
+      setPhotoVersion(0);
+      currentOperationIdRef.current = null;
       logout();
       navigation.navigate('Home');
     }
@@ -302,9 +317,9 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
         accept="image/*"
         onChange={handleFileSelect}
       />
-      
-      <ScrollView 
-        style={styles.scrollView} 
+
+      <ScrollView
+        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
@@ -312,7 +327,7 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
           <View style={styles.authSection}>
             <View style={styles.profileContainer}>
               <Text style={styles.authTitle}>Мой профиль</Text>
-              
+
               <View style={styles.photoContainer}>
                 <TouchableOpacity
                   style={styles.photoWrapper}
@@ -332,7 +347,7 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
                           setLocalPhotoUrl(null);
                         }}
                       />
-                      
+
                       {isPhotoLoading && (
                         <View style={styles.photoLoadingOverlay}>
                           <ActivityIndicator size="large" color="#2E7D32" />
@@ -340,7 +355,7 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
                         </View>
                       )}
                     </View>
-                    
+
                     {!isPhotoLoading && (
                       <View style={styles.editPhotoIndicator}>
                         <Text style={styles.editPhotoText}>✏️</Text>
@@ -402,7 +417,7 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
               <Text style={styles.authSubtitle}>
                 Войдите, чтобы управлять заказами
               </Text>
-              
+
               <View style={styles.form}>
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Телефон</Text>
@@ -416,7 +431,7 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
                     editable={!isLoginLoading}
                   />
                 </View>
-                
+
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Пароль</Text>
                   <TextInput
@@ -429,12 +444,12 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
                     editable={!isLoginLoading}
                   />
                 </View>
-                
-                <TouchableOpacity 
+
+                <TouchableOpacity
                   style={[
                     styles.loginButton,
                     isLoginLoading && styles.loginButtonDisabled
-                  ]} 
+                  ]}
                   onPress={handleLogin}
                   disabled={isLoginLoading}
                   activeOpacity={0.7}
@@ -445,7 +460,7 @@ export default function WebProfileScreen({ navigation }: WebProfileScreenProps) 
                     <Text style={styles.loginButtonText}>Войти</Text>
                   )}
                 </TouchableOpacity>
-                
+
                 <View style={styles.registerContainer}>
                   <Text style={styles.registerText}>Нет аккаунта? </Text>
                   <TouchableOpacity onPress={openRegisterModal} activeOpacity={0.7}>
