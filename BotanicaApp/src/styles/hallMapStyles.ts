@@ -272,6 +272,8 @@ export const hallMapStyles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    zIndex: 1000,
+    position: 'relative',
   },
   timeSelectionTitle: {
     fontSize: 16,
@@ -379,8 +381,116 @@ export const hallMapStyles = StyleSheet.create({
     fontSize: 16,
   },
   expoPicker: {
-  width: '100%',
-  height: 200,
-  backgroundColor: 'white',
-},
+    width: '100%',
+    height: 200,
+    backgroundColor: 'white',
+  },
+  timeSelectionPanelWeb: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 1000,
+    position: 'relative',
+    alignSelf: 'center', // Центрируем панель
+    width: '90%', // Ограничиваем ширину
+    maxWidth: 600, // Максимальная ширина
+    minWidth: 300, // Минимальная ширина
+  },
+
+  timeSelectionRowWeb: {
+    flexDirection: 'row',
+    justifyContent: 'center', // Центрируем содержимое
+    alignItems: 'center',
+    marginBottom: 0,
+    width: '100%',
+  },
+
+  timePickerCompactWeb: {
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 120, // Фиксированная минимальная ширина
+    maxWidth: 350,
+    marginHorizontal: 8,
+  },
+
+  timePickerButtonCompactWeb: {
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    width: '100%', // Фиксированная ширина
+    minHeight: 60, // Увеличенная высота
+    justifyContent: 'center',
+  },
+
+  timePickerTextCompactWeb: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+
+  dateTextCompactWeb: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+
+  timeSeparatorWeb: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginHorizontal: 8,
+  },
+
+  // Стили для веб-пикеров
+  webDatePickerContainer: {
+    width: '100%', // Такая же ширина как у кнопок
+    position: 'relative',
+    zIndex: 1000,
+  },
+
+  webDatePickerButton: {
+    width: '100%', // Фиксированная ширина
+    padding: 12,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+    minHeight: 60, // Такая же высота как у кнопок
+  },
+
+  webDatePickerText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a202c',
+    textAlign: 'center',
+  },
+
+  webDatePickerDateText: {
+    fontSize: 12,
+    color: '#718096',
+    marginTop: 2,
+    textAlign: 'center',
+  },
 });
