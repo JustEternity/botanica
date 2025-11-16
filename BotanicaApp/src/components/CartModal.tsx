@@ -10,6 +10,9 @@ import {
     StyleSheet,
     Dimensions,
     ActivityIndicator,
+    Platform,
+    ViewStyle,
+    TextStyle,
 } from 'react-native';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -116,11 +119,6 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
             return;
         }
 
-        // if (menuItems.length === 0) {
-        //     Alert.alert('Ошибка', 'Добавьте товары в заказ');
-        //     return;
-        // }
-
         setIsSubmitting(true);
 
         try {
@@ -151,6 +149,12 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
         }
     };
 
+    const handleOverlayPress = (event: any) => {
+        if (event.target === event.currentTarget) {
+            onClose();
+        }
+    };
+
     const totalPrice = getTotalPrice();
 
     // Если корзина загружается, показываем индикатор
@@ -162,14 +166,24 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
                 visible={visible}
                 onRequestClose={onClose}
             >
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalContent}>
+                <TouchableOpacity
+                    style={[
+                        styles.overlay,
+                        Platform.OS === 'web' && styles.webOverlay as ViewStyle
+                    ]}
+                    activeOpacity={1}
+                    onPress={handleOverlayPress}
+                >
+                    <View style={[
+                        styles.modalContainer,
+                        Platform.OS === 'web' && styles.webModalContainer as ViewStyle
+                    ]}>
                         <View style={styles.loadingOverlay}>
                             <ActivityIndicator size="large" color="#2E7D32" />
                             <Text style={styles.loadingText}>Загрузка корзины...</Text>
                         </View>
                     </View>
-                </View>
+                </TouchableOpacity>
             </Modal>
         );
     }
@@ -181,11 +195,22 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
             visible={visible}
             onRequestClose={onClose}
         >
-            <View style={styles.modalContainer}>
-                <View style={styles.modalContent}>
+            <TouchableOpacity
+                style={[
+                    styles.overlay,
+                    Platform.OS === 'web' && styles.webOverlay as ViewStyle
+                ]}
+                activeOpacity={1}
+                onPress={handleOverlayPress}
+            >
+                <View style={[
+                    styles.modalContainer,
+                    Platform.OS === 'web' && styles.webModalContainer as ViewStyle
+                ]}>
                     {/* Заголовок */}
                     <View style={styles.header}>
-                        <Text style={styles.title}>Корзина</Text>
+                        <View style={styles.headerSpacer} />
+                        <Text style={styles.modalTitle}>Корзина</Text>
                         <TouchableOpacity
                             style={styles.closeButton}
                             onPress={onClose}
@@ -205,55 +230,55 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
 
                             {tableReservation ? (
                                 <View style={styles.tableCard}>
-                                    <View style={styles.tableInfo}>
+                                    <View style={styles.tableHeader}>
                                         <Text style={styles.tableNumber}>
                                             Стол №{tableReservation.table.number}
                                         </Text>
-                                        <Text style={styles.tableTime}>
-                                            {formatDate(tableReservation.startTime)} • {formatTime(tableReservation.startTime)} - {formatTime(tableReservation.endTime)}
-                                        </Text>
-                                        <Text style={styles.tableDescription}>
-                                            {tableReservation.table.description}
-                                        </Text>
+                                        <TouchableOpacity
+                                            style={styles.removeButton}
+                                            onPress={removeTableReservation}
+                                        >
+                                            <Text style={styles.removeButtonText}>✕</Text>
+                                        </TouchableOpacity>
                                     </View>
 
+                                    <Text style={styles.tableTime}>
+                                        {formatDate(tableReservation.startTime)} • {formatTime(tableReservation.startTime)} - {formatTime(tableReservation.endTime)}
+                                    </Text>
+                                    <Text style={styles.tableDescription}>
+                                        {tableReservation.table.description}
+                                    </Text>
+
                                     <View style={styles.guestsControl}>
-                                        <Text style={styles.guestsLabel}>Гости:</Text>
-                                        <View style={styles.counterContainer}>
+                                        <Text style={styles.guestsLabel}>Количество гостей:</Text>
+                                        <View style={styles.quantityControls}>
                                             <TouchableOpacity
                                                 style={[
-                                                    styles.counterButton,
-                                                    tableReservation.guestsCount <= 1 && styles.counterButtonDisabled
+                                                    styles.quantityButton,
+                                                    tableReservation.guestsCount <= 1 && styles.quantityButtonDisabled
                                                 ]}
                                                 onPress={handleGuestsDecrement}
                                                 disabled={tableReservation.guestsCount <= 1}
                                             >
-                                                <Text style={styles.counterButtonText}>-</Text>
+                                                <Text style={styles.quantityButtonText}>-</Text>
                                             </TouchableOpacity>
 
-                                            <Text style={styles.counterValue}>
+                                            <Text style={styles.quantityValue}>
                                                 {tableReservation.guestsCount}
                                             </Text>
 
                                             <TouchableOpacity
                                                 style={[
-                                                    styles.counterButton,
-                                                    tableReservation.guestsCount >= (tableReservation.table.maxPeople || 10) && styles.counterButtonDisabled
+                                                    styles.quantityButton,
+                                                    tableReservation.guestsCount >= (tableReservation.table.maxPeople || 10) && styles.quantityButtonDisabled
                                                 ]}
                                                 onPress={handleGuestsIncrement}
                                                 disabled={tableReservation.guestsCount >= (tableReservation.table.maxPeople || 10)}
                                             >
-                                                <Text style={styles.counterButtonText}>+</Text>
+                                                <Text style={styles.quantityButtonText}>+</Text>
                                             </TouchableOpacity>
                                         </View>
                                     </View>
-
-                                    <TouchableOpacity
-                                        style={styles.removeButton}
-                                        onPress={removeTableReservation}
-                                    >
-                                        <Text style={styles.removeButtonText}>Удалить</Text>
-                                    </TouchableOpacity>
                                 </View>
                             ) : (
                                 <View style={styles.emptyState}>
@@ -263,9 +288,6 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
                                 </View>
                             )}
                         </View>
-
-                        {/* Разделитель */}
-                        <View style={styles.divider} />
 
                         {/* Секция товаров */}
                         <View style={styles.section}>
@@ -287,35 +309,37 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
                                         </View>
 
                                         <View style={styles.itemControl}>
-                                            <TouchableOpacity
-                                                style={[
-                                                    styles.smallCounterButton,
-                                                    cartItem.quantity <= 1 && styles.counterButtonDisabled
-                                                ]}
-                                                onPress={() => handleItemDecrement(cartItem.item.id)}
-                                                disabled={cartItem.quantity <= 1}
-                                            >
-                                                <Text style={styles.smallCounterButtonText}>-</Text>
-                                            </TouchableOpacity>
+                                            <View style={styles.quantityControlsSmall}>
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.quantityButtonSmall,
+                                                        cartItem.quantity <= 1 && styles.quantityButtonDisabled
+                                                    ]}
+                                                    onPress={() => handleItemDecrement(cartItem.item.id)}
+                                                    disabled={cartItem.quantity <= 1}
+                                                >
+                                                    <Text style={styles.quantityButtonText}>-</Text>
+                                                </TouchableOpacity>
 
-                                            <Text style={styles.smallCounterValue}>
-                                                {cartItem.quantity}
-                                            </Text>
+                                                <Text style={styles.quantityValueSmall}>
+                                                    {cartItem.quantity}
+                                                </Text>
+
+                                                <TouchableOpacity
+                                                    style={styles.quantityButtonSmall}
+                                                    onPress={() => handleItemIncrement(cartItem.item.id)}
+                                                >
+                                                    <Text style={styles.quantityButtonText}>+</Text>
+                                                </TouchableOpacity>
+                                            </View>
 
                                             <TouchableOpacity
-                                                style={styles.smallCounterButton}
-                                                onPress={() => handleItemIncrement(cartItem.item.id)}
+                                                style={styles.removeButtonSmall}
+                                                onPress={() => removeMenuItem(cartItem.item.id)}
                                             >
-                                                <Text style={styles.smallCounterButtonText}>+</Text>
+                                                <Text style={styles.removeButtonText}>✕</Text>
                                             </TouchableOpacity>
                                         </View>
-
-                                        <TouchableOpacity
-                                            style={styles.smallRemoveButton}
-                                            onPress={() => removeMenuItem(cartItem.item.id)}
-                                        >
-                                            <Text style={styles.smallRemoveButtonText}>✕</Text>
-                                        </TouchableOpacity>
                                     </View>
                                 ))
                             ) : (
@@ -357,7 +381,8 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
                             <TouchableOpacity
                                 style={[
                                     styles.orderButton,
-                                    isSubmitting && styles.orderButtonDisabled
+                                    isSubmitting && styles.orderButtonDisabled,
+                                    Platform.OS === 'web' && styles.webOrderButton as ViewStyle
                                 ]}
                                 onPress={handleCreateOrder}
                                 disabled={isSubmitting || !tableReservation}
@@ -369,235 +394,307 @@ export default function CartModal({ visible, onClose, onOrderSuccess }: CartModa
                         </View>
                     )}
                 </View>
-            </View>
+            </TouchableOpacity>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
-    modalContainer: {
+    overlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'flex-end',
-    },
-    modalContent: {
+    } as ViewStyle,
+
+    webOverlay: Platform.select({
+        web: {
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        default: {}
+    }) as ViewStyle,
+
+    modalContainer: {
         backgroundColor: 'white',
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         maxHeight: SCREEN_HEIGHT * 0.9,
-        paddingBottom: 20,
-    },
+    } as ViewStyle,
+
+    webModalContainer: Platform.select({
+        web: {
+            width: '90%',
+            maxWidth: 600,
+            height: 'auto',
+            maxHeight: SCREEN_HEIGHT * 0.9,
+            borderRadius: 20,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            shadowColor: '#000',
+            shadowOffset: {
+                width: 0,
+                height: 2,
+            },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
+        },
+        default: {}
+    }) as ViewStyle,
+
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingVertical: 15,
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
-    },
-    title: {
+    } as ViewStyle,
+
+    headerSpacer: {
+        width: 30,
+    } as ViewStyle,
+
+    modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#333',
-    },
+        textAlign: 'center',
+        flex: 1,
+    } as TextStyle,
+
     closeButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 30,
+        height: 30,
+        borderRadius: 15,
         backgroundColor: '#f5f5f5',
         justifyContent: 'center',
         alignItems: 'center',
-    },
+    } as ViewStyle,
+
     closeButtonText: {
-        fontSize: 18,
+        fontSize: 16,
         color: '#666',
         fontWeight: 'bold',
-    },
+    } as TextStyle,
+
     content: {
         paddingHorizontal: 20,
-    },
+        paddingVertical: 10,
+    } as ViewStyle,
+
     section: {
         marginBottom: 24,
-    },
+    } as ViewStyle,
+
     sectionTitle: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: 'bold',
         color: '#333',
         marginBottom: 12,
-    },
+    } as TextStyle,
+
     tableCard: {
         backgroundColor: '#f8f9fa',
-        padding: 16,
         borderRadius: 12,
+        padding: 16,
         borderLeftWidth: 4,
         borderLeftColor: '#2E7D32',
-    },
-    tableInfo: {
-        marginBottom: 12,
-    },
+    } as ViewStyle,
+
+    tableHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 8,
+    } as ViewStyle,
+
     tableNumber: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#2E7D32',
-        marginBottom: 4,
-    },
+        flex: 1,
+    } as TextStyle,
+
     tableTime: {
         fontSize: 14,
         color: '#666',
-        marginBottom: 4,
-    },
+        marginBottom: 8,
+    } as TextStyle,
+
     tableDescription: {
-        fontSize: 12,
-        color: '#888',
-    },
+        fontSize: 14,
+        color: '#666',
+        lineHeight: 20,
+        marginBottom: 12,
+    } as TextStyle,
+
     guestsControl: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-    },
+    } as ViewStyle,
+
     guestsLabel: {
-        fontSize: 14,
+        fontSize: 16,
         color: '#333',
         fontWeight: '500',
-    },
-    counterContainer: {
+    } as TextStyle,
+
+    quantityControls: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'white',
+        backgroundColor: '#f8f9fa',
+        borderRadius: 25,
+        padding: 5,
+    } as ViewStyle,
+
+    quantityButton: {
+        width: 40,
+        height: 40,
         borderRadius: 20,
-        padding: 4,
-    },
-    counterButton: {
+        backgroundColor: '#2E7D32',
+        justifyContent: 'center',
+        alignItems: 'center',
+    } as ViewStyle,
+
+    quantityButtonSmall: {
         width: 32,
         height: 32,
         borderRadius: 16,
         backgroundColor: '#2E7D32',
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    counterButtonDisabled: {
+    } as ViewStyle,
+
+    quantityButtonDisabled: {
         backgroundColor: '#cccccc',
-    },
-    counterButtonText: {
+    } as ViewStyle,
+
+    quantityButtonText: {
         fontSize: 16,
         color: 'white',
         fontWeight: 'bold',
-    },
-    counterValue: {
+    } as TextStyle,
+
+    quantityValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginHorizontal: 15,
+        minWidth: 30,
+        textAlign: 'center',
+        color: '#333',
+    } as TextStyle,
+
+    quantityValueSmall: {
         fontSize: 16,
         fontWeight: 'bold',
         marginHorizontal: 12,
-        minWidth: 20,
+        minWidth: 25,
         textAlign: 'center',
-    },
-    removeButton: {
-        marginTop: 12,
-        alignSelf: 'flex-end',
-    },
-    removeButtonText: {
-        color: '#FF6B35',
-        fontSize: 14,
-        fontWeight: '500',
-    },
-    menuItemCard: {
-        backgroundColor: '#f8f9fa',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 8,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    menuItemInfo: {
-        flex: 1,
-    },
-    menuItemName: {
-        fontSize: 14,
-        fontWeight: 'bold',
         color: '#333',
-        marginBottom: 2,
-    },
-    menuItemPrice: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#2E7D32',
-        marginBottom: 2,
-    },
-    menuItemDescription: {
-        fontSize: 12,
-        color: '#666',
-    },
-    itemControl: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'white',
-        borderRadius: 12,
-        padding: 2,
-        marginRight: 8,
-    },
-    smallCounterButton: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: '#2E7D32',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    smallCounterButtonText: {
-        fontSize: 12,
-        color: 'white',
-        fontWeight: 'bold',
-    },
-    smallCounterValue: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        marginHorizontal: 8,
-        minWidth: 15,
-        textAlign: 'center',
-    },
-    smallRemoveButton: {
+    } as TextStyle,
+
+    removeButton: {
         width: 24,
         height: 24,
         borderRadius: 12,
         backgroundColor: '#ffebee',
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    smallRemoveButtonText: {
-        fontSize: 12,
+    } as ViewStyle,
+
+    removeButtonSmall: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#ffebee',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 8,
+    } as ViewStyle,
+
+    removeButtonText: {
+        fontSize: 14,
         color: '#d32f2f',
         fontWeight: 'bold',
-    },
-    divider: {
-        height: 1,
-        backgroundColor: '#e0e0e0',
-        marginVertical: 16,
-    },
+    } as TextStyle,
+
+    menuItemCard: {
+        backgroundColor: '#f8f9fa',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 8,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    } as ViewStyle,
+
+    menuItemInfo: {
+        flex: 1,
+        marginRight: 12,
+    } as ViewStyle,
+
+    menuItemName: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 4,
+    } as TextStyle,
+
+    menuItemPrice: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#2E7D32',
+        marginBottom: 4,
+    } as TextStyle,
+
+    menuItemDescription: {
+        fontSize: 14,
+        color: '#666',
+    } as TextStyle,
+
+    itemControl: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    } as ViewStyle,
+
+    quantityControlsSmall: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 4,
+    } as ViewStyle,
+
     emptyState: {
         backgroundColor: '#f8f9fa',
         padding: 20,
-        borderRadius: 8,
+        borderRadius: 12,
         alignItems: 'center',
-    },
+    } as ViewStyle,
+
     emptyStateText: {
-        fontSize: 14,
+        fontSize: 16,
         color: '#666',
         textAlign: 'center',
         fontStyle: 'italic',
-    },
+    } as TextStyle,
+
     commentInput: {
         borderWidth: 1,
         borderColor: '#ddd',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        fontSize: 14,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 16,
         color: '#333',
         backgroundColor: '#fff',
-        minHeight: 80,
+        minHeight: 100,
         textAlignVertical: 'top',
-    },
+    } as TextStyle,
+
     totalSection: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -605,53 +702,63 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         borderTopWidth: 1,
         borderTopColor: '#e0e0e0',
-    },
+        marginTop: 8,
+    } as ViewStyle,
+
     totalLabel: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#333',
-    },
+    } as TextStyle,
+
     totalPrice: {
         fontSize: 20,
         fontWeight: 'bold',
         color: '#2E7D32',
-    },
+    } as TextStyle,
+
     footer: {
         paddingHorizontal: 20,
-        paddingTop: 16,
+        paddingVertical: 15,
         borderTopWidth: 1,
         borderTopColor: '#f0f0f0',
-    },
+    } as ViewStyle,
+
     orderButton: {
         backgroundColor: '#2E7D32',
         paddingVertical: 16,
         borderRadius: 12,
         alignItems: 'center',
-    },
+    } as ViewStyle,
+
     orderButtonDisabled: {
         backgroundColor: '#cccccc',
-    },
+    } as ViewStyle,
+
     orderButtonText: {
         color: 'white',
         fontSize: 16,
         fontWeight: 'bold',
-    },
+    } as TextStyle,
+
+    webOrderButton: Platform.select({
+        web: {
+            cursor: 'pointer',
+        },
+        default: {}
+    }) as ViewStyle,
+
     loadingOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 1000,
-        borderRadius: 20,
-    },
+        padding: 40,
+    } as ViewStyle,
+
     loadingText: {
         marginTop: 12,
         fontSize: 16,
         color: '#2E7D32',
         fontWeight: '500',
-    },
+    } as TextStyle,
 });
