@@ -209,6 +209,19 @@ const MenuItemComponent: React.FC<{
     ? [menuStyles.itemContent, styles.gridItemContent]
     : menuStyles.itemContent;
 
+  // Добавляем условные стили для текста в grid режиме
+  const nameStyle = isGridLayout
+    ? [menuStyles.itemName, styles.gridItemName]
+    : menuStyles.itemName;
+
+  const priceStyle = isGridLayout
+    ? [menuStyles.itemPrice, styles.gridItemPrice]
+    : menuStyles.itemPrice;
+
+  const descriptionStyle = isGridLayout
+    ? [menuStyles.itemDescription, styles.gridItemDescription]
+    : menuStyles.itemDescription;
+
   return (
     <View style={containerStyle}>
       <TouchableOpacity
@@ -268,31 +281,19 @@ const MenuItemComponent: React.FC<{
         <View style={contentStyle}>
           <View style={[menuStyles.itemHeader, isGridLayout && styles.gridItemHeader]}>
             <Text
-              style={[
-                menuStyles.itemName,
-                isGridLayout && styles.gridItemName,
-                isGridLayout && { textAlign: 'left' }
-              ]}
+              style={nameStyle}
               numberOfLines={isGridLayout ? 2 : 1}
             >
               {item.name}
             </Text>
             <Text
-              style={[
-                menuStyles.itemPrice,
-                isGridLayout && styles.gridItemPrice,
-                isGridLayout && { textAlign: 'right' }
-              ]}
+              style={priceStyle}
             >
               {item.price} ₽
             </Text>
           </View>
           <Text
-            style={[
-              menuStyles.itemDescription,
-              isGridLayout && styles.gridItemDescription,
-              isGridLayout && { textAlign: 'left' }
-            ]}
+            style={descriptionStyle}
             numberOfLines={isGridLayout ? 3 : 2}
           >
             {item.description}
@@ -302,8 +303,7 @@ const MenuItemComponent: React.FC<{
 
       <TouchableOpacity
         style={[
-          styles.plusButton,
-          isGridLayout && styles.gridPlusButton
+          isGridLayout ? styles.gridPlusButton : styles.plusButton
         ]}
         onPress={handlePlusPress}
         activeOpacity={0.8}
@@ -1094,7 +1094,7 @@ const styles = StyleSheet.create({
   centeredContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#0a1f0a',
   },
   loadingContent: {
     alignItems: 'center',
@@ -1105,7 +1105,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 20,
-    color: '#2E7D32',
+    color: '#4CAF50',
     fontSize: 18,
     fontWeight: '600',
   },
@@ -1125,7 +1125,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   retryButton: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: '#4CAF50',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
@@ -1143,7 +1143,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#2E7D32',
+    backgroundColor: '#4CAF50', // ЗЕЛЕНЫЙ для мобильной версии
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -1152,13 +1152,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 5,
     zIndex: 10,
-  },
-  gridPlusButton: {
-    bottom: 12,
-    right: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
   },
   plusButtonText: {
     fontSize: 20,
@@ -1202,7 +1195,7 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   pullIndicator: {
-    backgroundColor: 'rgba(46, 125, 50, 0.95)',
+    backgroundColor: 'rgba(76, 175, 80, 0.95)',
     borderRadius: 25,
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -1248,7 +1241,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  // Стили для адаптивного grid layout
+  // Стили для адаптивного grid layout (ТОЛЬКО для веб-версии)
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1263,7 +1256,7 @@ const styles = StyleSheet.create({
   gridMenuItemContainer: {
     minWidth: 300,
     width: '23%',
-    backgroundColor: 'white',
+    backgroundColor: '#FFF8F0', // Кремовый фон ТОЛЬКО для веба
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1272,6 +1265,8 @@ const styles = StyleSheet.create({
     elevation: 3,
     overflow: 'hidden',
     height: 380,
+    borderWidth: 1,
+    borderColor: '#F5E6D3', // Светло-бежевая граница ТОЛЬКО для веба
   },
   gridMenuItem: {
     flexDirection: 'column',
@@ -1281,16 +1276,15 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     justifyContent: 'space-between',
-    width: '100%', // Добавляем ширину 100%
+    width: '100%',
+    backgroundColor: '#FFF8F0', // Кремовый фон контента ТОЛЬКО для веба
   },
-  // Обновленные стили для выравнивания текста в grid режиме
   gridItemHeader: {
     width: '100%',
     flexDirection: 'row',
-    justifyContent: 'space-between', // Название слева, цена справа
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 8,
-    // Переопределяем возможные стили центрирования из menuStyles
     alignSelf: 'stretch',
   },
   gridItemName: {
@@ -1298,7 +1292,8 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     marginRight: 8,
     fontWeight: '600',
-    // Прижимаем текст к левому краю
+    color: '#5D4037', // Темно-коричневый ТОЛЬКО для веба
+    fontSize: 16,
     alignSelf: 'flex-start',
     textAlignVertical: 'top',
   },
@@ -1306,16 +1301,17 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontWeight: 'bold',
     flexShrink: 0,
-    // Прижимаем текст к правому краю
+    color: '#4CAF50', // Зеленый цвет цены
+    fontSize: 16,
     alignSelf: 'flex-start',
     textAlignVertical: 'top',
   },
   gridItemDescription: {
     textAlign: 'left',
     marginTop: 8,
-    color: '#666',
+    color: '#8D6E63', // Светло-коричневый ТОЛЬКО для веба
     lineHeight: 18,
-    // Прижимаем описание к левому краю
+    fontSize: 14,
     alignSelf: 'stretch',
     textAlignVertical: 'top',
   },
@@ -1324,24 +1320,30 @@ const styles = StyleSheet.create({
     height: 200,
     position: 'relative',
     overflow: 'hidden',
+    backgroundColor: '#FFF8F0', // Кремовый фон для изображения ТОЛЬКО для веба
   },
   gridItemImage: {
     width: '100%',
     height: '100%',
   },
-  placeholderImage: {
-    width: '100%',
-    height: '100%',
+  gridPlusButton: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-  },
-  realImageContainer: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-    top: 0,
-    left: 0,
+    bottom: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#8D6E63', // Коричневая кнопка ТОЛЬКО для веба
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+    zIndex: 10,
+    borderWidth: 2,
+    borderColor: '#FFF8F0',
   },
   menuButton: {
     position: 'absolute',

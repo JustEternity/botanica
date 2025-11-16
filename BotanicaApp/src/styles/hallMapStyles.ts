@@ -1,15 +1,16 @@
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet, Dimensions, Platform } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
 export const hallMapStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Platform.OS === 'web' ? '#0a1f0a' : '#f5f5f5', // Зеленый для веба, серый для мобилки
   },
   content: {
     flex: 1,
     padding: 16,
+    backgroundColor: Platform.OS === 'web' ? '#0a1f0a' : 'transparent', // Зеленый фон для контента на вебе
   },
   timeSelectionColumn: {
     flexDirection: 'column',
@@ -19,17 +20,17 @@ export const hallMapStyles = StyleSheet.create({
     marginBottom: 16,
   },
   timePickerButton: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Platform.OS === 'web' ? '#1a3d1a' : '#f8f9fa', // Темно-зеленый для веба
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: Platform.OS === 'web' ? '#2d5a2d' : '#ddd', // Зеленая граница для веба
     width: '100%',
   },
   timePickerText: {
     fontSize: 15,
-    color: '#333',
+    color: Platform.OS === 'web' ? '#E8F5E8' : '#333', // Светлый текст для веба
     fontWeight: '500',
     textAlign: 'center',
   },
@@ -48,7 +49,7 @@ export const hallMapStyles = StyleSheet.create({
   },
   timeRestrictionText: {
     fontSize: 12,
-    color: '#666',
+    color: Platform.OS === 'web' ? '#81C784' : '#666', // Светло-зеленый для веба
     textAlign: 'center',
     marginBottom: 12,
     fontStyle: 'italic',
@@ -95,13 +96,15 @@ export const hallMapStyles = StyleSheet.create({
     marginBottom: 20,
     marginTop: 15,
     padding: 10,
-    backgroundColor: 'white',
+    backgroundColor: Platform.OS === 'web' ? '#1a3d1a' : 'white', // Темно-зеленый для веба
     borderRadius: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 3,
+    borderWidth: Platform.OS === 'web' ? 1 : 0,
+    borderColor: Platform.OS === 'web' ? '#2d5a2d' : 'transparent',
   },
   legendItem: {
     flexDirection: 'row',
@@ -180,7 +183,7 @@ export const hallMapStyles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
-    color: '#333',
+    color: Platform.OS === 'web' ? '#E8F5E8' : '#333', // Светлый текст для веба
   },
   mapContainerAndroid: {
     borderWidth: 1,
@@ -235,7 +238,7 @@ export const hallMapStyles = StyleSheet.create({
     position: 'absolute',
     top: 16,
     left: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: Platform.OS === 'web' ? 'rgba(26, 61, 26, 0.9)' : 'rgba(255, 255, 255, 0.9)', // Темно-зеленый для веба
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -245,6 +248,8 @@ export const hallMapStyles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 2,
     elevation: 3,
+    borderWidth: Platform.OS === 'web' ? 1 : 0,
+    borderColor: Platform.OS === 'web' ? '#2d5a2d' : 'transparent',
   },
   zoomButtonText: {
     fontSize: 24,
@@ -258,12 +263,12 @@ export const hallMapStyles = StyleSheet.create({
   },
   scaleText: {
     fontSize: 16,
-    color: '#2E7D32',
+    color: Platform.OS === 'web' ? '#81C784' : '#2E7D32', // Светло-зеленый для веба
     fontWeight: 'bold',
     marginBottom: 5,
   },
   timeSelectionPanel: {
-    backgroundColor: 'white',
+    backgroundColor: Platform.OS === 'web' ? '#1a3d1a' : 'white', // Темно-зеленый для веба
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
@@ -274,11 +279,13 @@ export const hallMapStyles = StyleSheet.create({
     elevation: 3,
     zIndex: 1000,
     position: 'relative',
+    borderWidth: Platform.OS === 'web' ? 1 : 0,
+    borderColor: Platform.OS === 'web' ? '#2d5a2d' : 'transparent',
   },
   timeSelectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2E7D32',
+    color: Platform.OS === 'web' ? '#4CAF50' : '#2E7D32', // Зеленый для веба
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -294,40 +301,40 @@ export const hallMapStyles = StyleSheet.create({
   },
   timePickerLabel: {
     fontSize: 12,
-    color: '#666',
+    color: Platform.OS === 'web' ? '#81C784' : '#666', // Светло-зеленый для веба
     marginBottom: 6,
     fontWeight: '500',
     textAlign: 'center',
   },
   timePickerButtonCompact: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Platform.OS === 'web' ? '#1a3d1a' : '#f8f9fa', // Темно-зеленый для веба
     paddingVertical: 8,
     paddingHorizontal: 6,
     borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: Platform.OS === 'web' ? '#2d5a2d' : '#ddd', // Зеленая граница для веба
     width: '90%',
     minHeight: 50,
     justifyContent: 'center',
   },
   timePickerButtonActive: {
-    backgroundColor: '#E8F5E8',
+    backgroundColor: Platform.OS === 'web' ? '#2d5a2d' : '#E8F5E8', // Темнее-зеленый для веба
     borderColor: '#2E7D32',
     borderWidth: 2,
   },
   timePickerTextCompact: {
     fontSize: 16,
-    color: '#333',
+    color: Platform.OS === 'web' ? '#E8F5E8' : '#333', // Светлый текст для веба
     fontWeight: 'bold',
     textAlign: 'center',
   },
   timePickerTextActive: {
-    color: '#2E7D32',
+    color: Platform.OS === 'web' ? '#81C784' : '#2E7D32', // Светло-зеленый для веба
   },
   dateTextCompact: {
     fontSize: 11,
-    color: '#666',
+    color: Platform.OS === 'web' ? '#81C784' : '#666', // Светло-зеленый для веба
     marginTop: 2,
     textAlign: 'center',
   },
@@ -339,17 +346,20 @@ export const hallMapStyles = StyleSheet.create({
   },
   timeSeparatorText: {
     fontSize: 18,
-    color: '#666',
+    color: Platform.OS === 'web' ? '#81C784' : '#666', // Светло-зеленый для веба
     fontWeight: 'bold',
   },
   mapContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Platform.OS === 'web' ? '#1a3d1a' : '#f5f5f5', // Темно-зеленый для веба
     overflow: 'hidden',
     position: 'relative',
     // Размеры контейнера карты
     width: '100%',
     height: 400, // или нужная вам высота
+    borderWidth: Platform.OS === 'web' ? 1 : 0,
+    borderColor: Platform.OS === 'web' ? '#2d5a2d' : 'transparent',
+    borderRadius: Platform.OS === 'web' ? 12 : 0,
   },
 
   transformContainer: {
@@ -386,7 +396,7 @@ export const hallMapStyles = StyleSheet.create({
     backgroundColor: 'white',
   },
   timeSelectionPanelWeb: {
-    backgroundColor: 'white',
+    backgroundColor: '#1a3d1a', // Темно-зеленый для веба
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
@@ -401,6 +411,8 @@ export const hallMapStyles = StyleSheet.create({
     width: '90%', // Ограничиваем ширину
     maxWidth: 600, // Максимальная ширина
     minWidth: 300, // Минимальная ширина
+    borderWidth: 1,
+    borderColor: '#2d5a2d',
   },
 
   timeSelectionRowWeb: {
@@ -420,13 +432,13 @@ export const hallMapStyles = StyleSheet.create({
   },
 
   timePickerButtonCompactWeb: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#1a3d1a', // Темно-зеленый для веба
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#2d5a2d', // Зеленая граница
     width: '100%', // Фиксированная ширина
     minHeight: 60, // Увеличенная высота
     justifyContent: 'center',
@@ -434,14 +446,14 @@ export const hallMapStyles = StyleSheet.create({
 
   timePickerTextCompactWeb: {
     fontSize: 16,
-    color: '#333',
+    color: '#E8F5E8', // Светлый текст для веба
     fontWeight: 'bold',
     textAlign: 'center',
   },
 
   dateTextCompactWeb: {
     fontSize: 12,
-    color: '#666',
+    color: '#81C784', // Светло-зеленый для веба
     marginTop: 4,
     textAlign: 'center',
   },
@@ -464,9 +476,9 @@ export const hallMapStyles = StyleSheet.create({
     width: '100%', // Фиксированная ширина
     padding: 12,
     borderWidth: 2,
-    borderColor: '#e2e8f0',
+    borderColor: Platform.OS === 'web' ? '#2d5a2d' : '#e2e8f0', // Зеленая граница для веба
     borderRadius: 8,
-    backgroundColor: 'white',
+    backgroundColor: Platform.OS === 'web' ? '#1a3d1a' : 'white', // Темно-зеленый для веба
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -483,13 +495,13 @@ export const hallMapStyles = StyleSheet.create({
   webDatePickerText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1a202c',
+    color: Platform.OS === 'web' ? '#E8F5E8' : '#1a202c', // Светлый текст для веба
     textAlign: 'center',
   },
 
   webDatePickerDateText: {
     fontSize: 12,
-    color: '#718096',
+    color: Platform.OS === 'web' ? '#81C784' : '#718096', // Светло-зеленый для веба
     marginTop: 2,
     textAlign: 'center',
   },
@@ -498,6 +510,7 @@ export const hallMapStyles = StyleSheet.create({
     flex: 1,
     padding: 16,
     alignItems: 'center',
+    backgroundColor: '#0a1f0a', // Зеленый фон для веба
   },
 
   mapWrapperWeb: {
@@ -509,15 +522,17 @@ export const hallMapStyles = StyleSheet.create({
 
   mapContainerWeb: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#1a3d1a', // Темно-зеленый для веба
     overflow: 'hidden',
     position: 'relative',
     marginHorizontal: 'auto',
     width: '100%', // Ограничиваем ширину
     maxWidth: 600, // Максимальная ширина
     height: 600, // Немного увеличиваем высоту для веба
-
     marginRight: 'auto', // Автоматический отступ справа
+    borderWidth: 1,
+    borderColor: '#2d5a2d',
+    borderRadius: 12,
   },
   mapWrapper: {
     flex: 1,

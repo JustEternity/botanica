@@ -158,14 +158,26 @@ export default function MenuModal({
           styles.modalContainer,
           Platform.OS === 'web' && styles.webModalContainer as ViewStyle
         ]}>
-          <View style={styles.header}>
+          <View style={[
+            styles.header,
+            Platform.OS === 'web' && styles.webHeader as ViewStyle
+          ]}>
             <View style={styles.headerSpacer} />
-            <Text style={styles.modalTitle}>{item.name}</Text>
+            <Text style={[
+              styles.modalTitle,
+              Platform.OS === 'web' && styles.webModalTitle as TextStyle
+            ]}>{item.name}</Text>
             <TouchableOpacity
-              style={styles.closeButton}
+              style={[
+                styles.closeButton,
+                Platform.OS === 'web' && styles.webCloseButton as ViewStyle
+              ]}
               onPress={onClose}
             >
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Text style={[
+                styles.closeButtonText,
+                Platform.OS === 'web' && styles.webCloseButtonText as TextStyle
+              ]}>✕</Text>
             </TouchableOpacity>
           </View>
 
@@ -176,7 +188,7 @@ export default function MenuModal({
             <View style={styles.imageContainer}>
               {imageLoading && (
                 <View style={[styles.imagePlaceholder, { width: imageStyle.width, height: imageStyle.height }]}>
-                  <ActivityIndicator size="large" color="#2E7D32" />
+                  <ActivityIndicator size="large" color={Platform.OS === 'web' ? '#8D6E63' : '#2E7D32'} />
                 </View>
               )}
 
@@ -198,40 +210,68 @@ export default function MenuModal({
                   onPress={handleRetryLoad}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.modalErrorText}>🖼️</Text>
-                  <Text style={styles.modalErrorText}>Ошибка загрузки изображения</Text>
-                  <Text style={styles.retryHint}>Нажмите для повторной загрузки</Text>
+                  <Text style={[
+                    styles.modalErrorText,
+                    Platform.OS === 'web' && styles.webModalErrorText as TextStyle
+                  ]}>🖼️</Text>
+                  <Text style={[
+                    styles.modalErrorText,
+                    Platform.OS === 'web' && styles.webModalErrorText as TextStyle
+                  ]}>Ошибка загрузки изображения</Text>
+                  <Text style={[
+                    styles.retryHint,
+                    Platform.OS === 'web' && styles.webRetryHint as TextStyle
+                  ]}>Нажмите для повторной загрузки</Text>
                 </TouchableOpacity>
               )}
             </View>
 
-            <Text style={styles.description}>
+            <Text style={[
+              styles.description,
+              Platform.OS === 'web' && styles.webDescription as TextStyle
+            ]}>
               {item.description}
             </Text>
 
             <View style={styles.priceContainer}>
               <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>
+                <Text style={[
+                  styles.priceLabel,
+                  Platform.OS === 'web' && styles.webPriceLabel as TextStyle
+                ]}>
                   {quantity > 0 ? 'Общая стоимость:' : 'Цена:'}
                 </Text>
-                <Text style={styles.price}>
+                <Text style={[
+                  styles.price,
+                  Platform.OS === 'web' && styles.webPrice as TextStyle
+                ]}>
                   {displayPrice} ₽
                 </Text>
               </View>
               {quantity > 0 && (
-                <Text style={styles.priceDetails}>
+                <Text style={[
+                  styles.priceDetails,
+                  Platform.OS === 'web' && styles.webPriceDetails as TextStyle
+                ]}>
                   {item.price} ₽ × {quantity} шт.
                 </Text>
               )}
             </View>
           </ScrollView>
 
-          <View style={styles.quantitySection}>
-            <View style={styles.quantityControls}>
+          <View style={[
+            styles.quantitySection,
+            Platform.OS === 'web' && styles.webQuantitySection as ViewStyle
+          ]}>
+            <View style={[
+              styles.quantityControls,
+              Platform.OS === 'web' && styles.webQuantityControls as ViewStyle
+            ]}>
               <TouchableOpacity
                 style={[
                   styles.quantityButton,
-                  quantity === 0 && styles.quantityButtonDisabled
+                  quantity === 0 && styles.quantityButtonDisabled,
+                  Platform.OS === 'web' && styles.webQuantityButton as ViewStyle
                 ]}
                 onPress={handleDecrement}
                 disabled={quantity === 0}
@@ -239,12 +279,18 @@ export default function MenuModal({
                 <Text style={styles.quantityButtonText}>-</Text>
               </TouchableOpacity>
 
-              <Text style={styles.quantityText}>
+              <Text style={[
+                styles.quantityText,
+                Platform.OS === 'web' && styles.webQuantityText as TextStyle
+              ]}>
                 {quantity}
               </Text>
 
               <TouchableOpacity
-                style={styles.quantityButton}
+                style={[
+                  styles.quantityButton,
+                  Platform.OS === 'web' && styles.webQuantityButton as ViewStyle
+                ]}
                 onPress={handleIncrement}
               >
                 <Text style={styles.quantityButtonText}>+</Text>
@@ -300,7 +346,7 @@ const styles = StyleSheet.create({
       width: '90%',
       maxWidth: 600,
       height: 'auto',
-      maxHeight: SCREEN_HEIGHT * 0.8, // Используем числа вместо '80vh'
+      maxHeight: SCREEN_HEIGHT * 0.8,
       borderRadius: 20,
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
@@ -312,6 +358,10 @@ const styles = StyleSheet.create({
       shadowOpacity: 0.25,
       shadowRadius: 3.84,
       elevation: 5,
+      backgroundColor: '#FFF8F0', // Кремовый фон для веба
+      borderWidth: 1,
+      borderColor: '#F5E6D3',
+      overflow: 'hidden',
     },
     default: {}
   }) as ViewStyle,
@@ -326,6 +376,14 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f0f0f0',
   } as ViewStyle,
 
+  webHeader: Platform.select({
+    web: {
+      borderBottomColor: '#F5E6D3',
+      backgroundColor: '#FFF8F0',
+    },
+    default: {}
+  }) as ViewStyle,
+
   headerSpacer: {
     width: 30,
   } as ViewStyle,
@@ -338,6 +396,13 @@ const styles = StyleSheet.create({
     flex: 1,
   } as TextStyle,
 
+  webModalTitle: Platform.select({
+    web: {
+      color: '#5D4037', // Темно-коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
+
   closeButton: {
     width: 30,
     height: 30,
@@ -347,11 +412,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   } as ViewStyle,
 
+  webCloseButton: Platform.select({
+    web: {
+      backgroundColor: '#8D6E63', // Коричневый для веба
+    },
+    default: {}
+  }) as ViewStyle,
+
   closeButtonText: {
     fontSize: 16,
     color: '#666',
     fontWeight: 'bold',
   } as TextStyle,
+
+  webCloseButtonText: Platform.select({
+    web: {
+      color: '#FFF8F0', // Кремовый текст для веба
+    },
+    default: {}
+  }) as TextStyle,
 
   content: {
     paddingHorizontal: 20,
@@ -397,12 +476,26 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   } as TextStyle,
 
+  webModalErrorText: Platform.select({
+    web: {
+      color: '#8D6E63', // Коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
+
   retryHint: {
     fontSize: 12,
     color: '#666',
     textAlign: 'center',
     fontStyle: 'italic',
   } as TextStyle,
+
+  webRetryHint: Platform.select({
+    web: {
+      color: '#8D6E63', // Коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
 
   description: {
     fontSize: 16,
@@ -411,6 +504,13 @@ const styles = StyleSheet.create({
     marginTop: 15,
     marginBottom: 10,
   } as TextStyle,
+
+  webDescription: Platform.select({
+    web: {
+      color: '#8D6E63', // Коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
 
   priceContainer: {
     marginBottom: 20,
@@ -430,11 +530,25 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   } as TextStyle,
 
+  webPriceLabel: Platform.select({
+    web: {
+      color: '#2E7D32', // Темно-коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
+
   price: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#2E7D32',
   } as TextStyle,
+
+  webPrice: Platform.select({
+    web: {
+      color: '#2E7D32', // Коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
 
   priceDetails: {
     fontSize: 14,
@@ -442,6 +556,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontStyle: 'italic',
   } as TextStyle,
+
+  webPriceDetails: Platform.select({
+    web: {
+      color: '#8D6E63', // Коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
 
   quantitySection: {
     flexDirection: 'row',
@@ -453,6 +574,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   } as ViewStyle,
 
+  webQuantitySection: Platform.select({
+    web: {
+      borderTopColor: '#F5E6D3',
+      backgroundColor: '#FFF8F0',
+    },
+    default: {}
+  }) as ViewStyle,
+
   quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -460,6 +589,13 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     padding: 5,
   } as ViewStyle,
+
+  webQuantityControls: Platform.select({
+    web: {
+      backgroundColor: '#FFF8F0',
+    },
+    default: {}
+  }) as ViewStyle,
 
   quantityButton: {
     width: 40,
@@ -469,6 +605,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   } as ViewStyle,
+
+  webQuantityButton: Platform.select({
+    web: {
+      backgroundColor: '#8D6E63', // Коричневый для веба
+    },
+    default: {}
+  }) as ViewStyle,
 
   quantityButtonDisabled: {
     backgroundColor: '#cccccc',
@@ -488,6 +631,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#333',
   } as TextStyle,
+
+  webQuantityText: Platform.select({
+    web: {
+      color: '#5D4037', // Темно-коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
 
   addButton: {
     backgroundColor: '#2E7D32',
@@ -512,6 +662,7 @@ const styles = StyleSheet.create({
     web: {
       maxWidth: 200,
       cursor: 'pointer',
+      backgroundColor: '#8D6E63', // Коричневый для веба
     },
     default: {}
   }) as ViewStyle,

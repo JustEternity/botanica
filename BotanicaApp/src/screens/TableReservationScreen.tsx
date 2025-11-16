@@ -117,14 +117,26 @@ export default function TableReservationModal({
           Platform.OS === 'web' && styles.webModalContainer as ViewStyle
         ]}>
           {/* Заголовок модального окна */}
-          <View style={styles.header}>
+          <View style={[
+            styles.header,
+            Platform.OS === 'web' && styles.webHeader as ViewStyle
+          ]}>
             <View style={styles.headerSpacer} />
-            <Text style={styles.modalTitle}>Бронирование стола</Text>
+            <Text style={[
+              styles.modalTitle,
+              Platform.OS === 'web' && styles.webModalTitle as TextStyle
+            ]}>Бронирование стола</Text>
             <TouchableOpacity
-              style={styles.closeButton}
+              style={[
+                styles.closeButton,
+                Platform.OS === 'web' && styles.webCloseButton as ViewStyle
+              ]}
               onPress={onClose}
             >
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Text style={[
+                styles.closeButtonText,
+                Platform.OS === 'web' && styles.webCloseButtonText as TextStyle
+              ]}>✕</Text>
             </TouchableOpacity>
           </View>
 
@@ -134,17 +146,32 @@ export default function TableReservationModal({
           >
             {/* Информация о столе */}
             <View style={styles.tableInfoSection}>
-              <Text style={styles.tableNumberLarge}>
+              <Text style={[
+                styles.tableNumberLarge,
+                Platform.OS === 'web' && styles.webTableNumberLarge as TextStyle
+              ]}>
                 Стол №{table.number}
               </Text>
-              <Text style={styles.description}>
+              <Text style={[
+                styles.description,
+                Platform.OS === 'web' && styles.webDescription as TextStyle
+              ]}>
                 {table.description}
               </Text>
 
-              <View style={styles.tableSpecs}>
+              <View style={[
+                styles.tableSpecs,
+                Platform.OS === 'web' && styles.webTableSpecs as ViewStyle
+              ]}>
                 <View style={styles.specItem}>
-                  <Text style={styles.specLabel}>Вместимость:</Text>
-                  <Text style={styles.specValue}>
+                  <Text style={[
+                    styles.specLabel,
+                    Platform.OS === 'web' && styles.webSpecLabel as TextStyle
+                  ]}>Вместимость:</Text>
+                  <Text style={[
+                    styles.specValue,
+                    Platform.OS === 'web' && styles.webSpecValue as TextStyle
+                  ]}>
                     до {table.maxPeople} человек
                   </Text>
                 </View>
@@ -153,22 +180,46 @@ export default function TableReservationModal({
 
             {/* Информация о времени бронирования */}
             <View style={styles.timeInfoSection}>
-              <Text style={styles.sectionTitle}>Время бронирования</Text>
-              <View style={styles.timeDetails}>
+              <Text style={[
+                styles.sectionTitle,
+                Platform.OS === 'web' && styles.webSectionTitle as TextStyle
+              ]}>Время бронирования</Text>
+              <View style={[
+                styles.timeDetails,
+                Platform.OS === 'web' && styles.webTimeDetails as ViewStyle
+              ]}>
                 <View style={styles.timeRow}>
-                  <Text style={styles.timeLabel}>Начало:</Text>
-                  <Text style={styles.timeValue}>
+                  <Text style={[
+                    styles.timeLabel,
+                    Platform.OS === 'web' && styles.webTimeLabel as TextStyle
+                  ]}>Начало:</Text>
+                  <Text style={[
+                    styles.timeValue,
+                    Platform.OS === 'web' && styles.webTimeValue as TextStyle
+                  ]}>
                     {formatDate(startTime)} {formatTime(startTime)}
                   </Text>
                 </View>
                 <View style={styles.timeRow}>
-                  <Text style={styles.timeLabel}>Окончание:</Text>
-                  <Text style={styles.timeValue}>
+                  <Text style={[
+                    styles.timeLabel,
+                    Platform.OS === 'web' && styles.webTimeLabel as TextStyle
+                  ]}>Окончание:</Text>
+                  <Text style={[
+                    styles.timeValue,
+                    Platform.OS === 'web' && styles.webTimeValue as TextStyle
+                  ]}>
                     {formatDate(endTime)} {formatTime(endTime)}
                   </Text>
                 </View>
-                <View style={styles.durationContainer}>
-                  <Text style={styles.durationText}>
+                <View style={[
+                  styles.durationContainer,
+                  Platform.OS === 'web' && styles.webDurationContainer as ViewStyle
+                ]}>
+                  <Text style={[
+                    styles.durationText,
+                    Platform.OS === 'web' && styles.webDurationText as TextStyle
+                  ]}>
                     Продолжительность: {Math.round((endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000))} часа(ов)
                   </Text>
                 </View>
@@ -177,12 +228,19 @@ export default function TableReservationModal({
 
             {/* Выбор количества человек */}
             <View style={styles.quantitySection}>
-              <Text style={styles.sectionTitle}>Количество человек</Text>
-              <View style={styles.quantityControls}>
+              <Text style={[
+                styles.sectionTitle,
+                Platform.OS === 'web' && styles.webSectionTitle as TextStyle
+              ]}>Количество человек</Text>
+              <View style={[
+                styles.quantityControls,
+                Platform.OS === 'web' && styles.webQuantityControls as ViewStyle
+              ]}>
                 <TouchableOpacity
                   style={[
                     styles.quantityButton,
-                    peopleCount <= 1 && styles.quantityButtonDisabled
+                    peopleCount <= 1 && styles.quantityButtonDisabled,
+                    Platform.OS === 'web' && styles.webQuantityButton as ViewStyle
                   ]}
                   onPress={handlePeopleDecrement}
                   disabled={peopleCount <= 1}
@@ -191,14 +249,21 @@ export default function TableReservationModal({
                 </TouchableOpacity>
 
                 <View style={styles.quantityDisplay}>
-                  <Text style={styles.quantityValue}>{peopleCount}</Text>
-                  <Text style={styles.quantityLabel}>человек(а)</Text>
+                  <Text style={[
+                    styles.quantityValue,
+                    Platform.OS === 'web' && styles.webQuantityValue as TextStyle
+                  ]}>{peopleCount}</Text>
+                  <Text style={[
+                    styles.quantityLabel,
+                    Platform.OS === 'web' && styles.webQuantityLabel as TextStyle
+                  ]}>человек(а)</Text>
                 </View>
 
                 <TouchableOpacity
                   style={[
                     styles.quantityButton,
-                    peopleCount >= (table.maxPeople || 1) && styles.quantityButtonDisabled
+                    peopleCount >= (table.maxPeople || 1) && styles.quantityButtonDisabled,
+                    Platform.OS === 'web' && styles.webQuantityButton as ViewStyle
                   ]}
                   onPress={handlePeopleIncrement}
                   disabled={peopleCount >= (table.maxPeople || 1)}
@@ -210,7 +275,10 @@ export default function TableReservationModal({
           </ScrollView>
 
           {/* Кнопка добавления в заказ */}
-          <View style={styles.footer}>
+          <View style={[
+            styles.footer,
+            Platform.OS === 'web' && styles.webFooter as ViewStyle
+          ]}>
             <TouchableOpacity
               style={[
                 styles.addButton,
@@ -269,6 +337,10 @@ const styles = StyleSheet.create({
       shadowOpacity: 0.25,
       shadowRadius: 3.84,
       elevation: 5,
+      backgroundColor: '#FFF8F0', // Кремовый фон для веба
+      borderWidth: 1,
+      borderColor: '#F5E6D3',
+      overflow: 'hidden',
     },
     default: {}
   }) as ViewStyle,
@@ -283,6 +355,14 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f0f0f0',
   } as ViewStyle,
 
+  webHeader: Platform.select({
+    web: {
+      borderBottomColor: '#F5E6D3',
+      backgroundColor: '#FFF8F0',
+    },
+    default: {}
+  }) as ViewStyle,
+
   headerSpacer: {
     width: 30,
   } as ViewStyle,
@@ -295,6 +375,13 @@ const styles = StyleSheet.create({
     flex: 1,
   } as TextStyle,
 
+  webModalTitle: Platform.select({
+    web: {
+      color: '#5D4037', // Темно-коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
+
   closeButton: {
     width: 30,
     height: 30,
@@ -304,11 +391,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   } as ViewStyle,
 
+  webCloseButton: Platform.select({
+    web: {
+      backgroundColor: '#8D6E63', // Коричневый для веба
+    },
+    default: {}
+  }) as ViewStyle,
+
   closeButtonText: {
     fontSize: 16,
     color: '#666',
     fontWeight: 'bold',
   } as TextStyle,
+
+  webCloseButtonText: Platform.select({
+    web: {
+      color: '#FFF8F0', // Кремовый текст для веба
+    },
+    default: {}
+  }) as TextStyle,
 
   content: {
     paddingHorizontal: 20,
@@ -327,6 +428,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   } as TextStyle,
 
+  webTableNumberLarge: Platform.select({
+    web: {
+      color: '#8D6E63', // Коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
+
   description: {
     fontSize: 16,
     lineHeight: 22,
@@ -335,11 +443,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   } as TextStyle,
 
+  webDescription: Platform.select({
+    web: {
+      color: '#8D6E63', // Коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
+
   tableSpecs: {
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
     padding: 15,
   } as ViewStyle,
+
+  webTableSpecs: Platform.select({
+    web: {
+      backgroundColor: '#FFF8F0',
+      borderWidth: 1,
+      borderColor: '#F5E6D3',
+    },
+    default: {}
+  }) as ViewStyle,
 
   specItem: {
     flexDirection: 'row',
@@ -353,11 +477,25 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   } as TextStyle,
 
+  webSpecLabel: Platform.select({
+    web: {
+      color: '#5D4037', // Темно-коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
+
   specValue: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
   } as TextStyle,
+
+  webSpecValue: Platform.select({
+    web: {
+      color: '#8D6E63', // Коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
 
   timeInfoSection: {
     marginBottom: 20,
@@ -370,11 +508,27 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   } as TextStyle,
 
+  webSectionTitle: Platform.select({
+    web: {
+      color: '#5D4037', // Темно-коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
+
   timeDetails: {
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
     padding: 15,
   } as ViewStyle,
+
+  webTimeDetails: Platform.select({
+    web: {
+      backgroundColor: '#FFF8F0',
+      borderWidth: 1,
+      borderColor: '#F5E6D3',
+    },
+    default: {}
+  }) as ViewStyle,
 
   timeRow: {
     flexDirection: 'row',
@@ -389,11 +543,25 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   } as TextStyle,
 
+  webTimeLabel: Platform.select({
+    web: {
+      color: '#5D4037', // Темно-коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
+
   timeValue: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
   } as TextStyle,
+
+  webTimeValue: Platform.select({
+    web: {
+      color: '#8D6E63', // Коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
 
   durationContainer: {
     marginTop: 8,
@@ -402,12 +570,26 @@ const styles = StyleSheet.create({
     borderTopColor: '#e0e0e0',
   } as ViewStyle,
 
+  webDurationContainer: Platform.select({
+    web: {
+      borderTopColor: '#F5E6D3',
+    },
+    default: {}
+  }) as ViewStyle,
+
   durationText: {
     fontSize: 14,
     color: '#666',
     fontStyle: 'italic',
     textAlign: 'center',
   } as TextStyle,
+
+  webDurationText: Platform.select({
+    web: {
+      color: '#8D6E63', // Коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
 
   quantitySection: {
     marginBottom: 20,
@@ -423,6 +605,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
   } as ViewStyle,
 
+  webQuantityControls: Platform.select({
+    web: {
+      backgroundColor: '#FFF8F0',
+    },
+    default: {}
+  }) as ViewStyle,
+
   quantityButton: {
     width: 40,
     height: 40,
@@ -431,6 +620,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   } as ViewStyle,
+
+  webQuantityButton: Platform.select({
+    web: {
+      backgroundColor: '#8D6E63', // Коричневый для веба
+    },
+    default: {}
+  }) as ViewStyle,
 
   quantityButtonDisabled: {
     backgroundColor: '#cccccc',
@@ -453,11 +649,25 @@ const styles = StyleSheet.create({
     color: '#333',
   } as TextStyle,
 
+  webQuantityValue: Platform.select({
+    web: {
+      color: '#5D4037', // Темно-коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
+
   quantityLabel: {
     fontSize: 14,
     color: '#666',
     marginTop: 4,
   } as TextStyle,
+
+  webQuantityLabel: Platform.select({
+    web: {
+      color: '#8D6E63', // Коричневый для веба
+    },
+    default: {}
+  }) as TextStyle,
 
   footer: {
     paddingHorizontal: 20,
@@ -465,6 +675,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
   } as ViewStyle,
+
+  webFooter: Platform.select({
+    web: {
+      borderTopColor: '#F5E6D3',
+      backgroundColor: '#FFF8F0',
+    },
+    default: {}
+  }) as ViewStyle,
 
   addButton: {
     backgroundColor: '#2E7D32',
@@ -482,6 +700,7 @@ const styles = StyleSheet.create({
   webAddButton: Platform.select({
     web: {
       cursor: 'pointer',
+      backgroundColor: '#8D6E63', // Коричневый для веба
     },
     default: {}
   }) as ViewStyle,
