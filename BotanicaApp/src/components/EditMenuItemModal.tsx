@@ -16,6 +16,7 @@ import {
 import { MenuItem, MenuCategory } from '../types';
 import { ApiService } from '../services/api';
 import { getOptimizedImageUrl } from '../utils/imageUtils';
+import { incrementGlobalMenuVersion, incrementImageVersion } from '../utils/imageCache';
 
 // Условный импорт для мобильных платформ
 let ImagePicker: any;
@@ -410,13 +411,19 @@ export default function EditMenuItemModal({
                 itemData.cloudinary_public_id = cloudinaryData.public_id;
                 itemData.cloudinary_url = cloudinaryData.secure_url;
                 itemData.image = cloudinaryData.secure_url;
-            } else if (item) {
+
+                // Инвалидируем кеш для нового изображения
+                incrementImageVersion(cloudinaryData.secure_url);
+                } else if (item) {
                 itemData.cloudinary_public_id = item.cloudinary_public_id;
                 itemData.cloudinary_url = item.image;
                 itemData.image = item.image;
-            } else {
+
+                // Если это существующий товар, тоже инвалидируем кеш
+                incrementImageVersion(item.image);
+                } else {
                 itemData.image = selectedImage;
-            }
+                }
 
             if (item) {
                 await ApiService.updateMenuItem(item.id, itemData);
@@ -429,6 +436,8 @@ export default function EditMenuItemModal({
                 image: cloudinaryData ? cloudinaryData.secure_url : (item?.image || selectedImage),
                 is_available: true,
             };
+
+            incrementGlobalMenuVersion();
 
             onSave(completeItemData);
             Alert.alert('Успех', item ? 'Товар обновлен' : 'Товар добавлен');

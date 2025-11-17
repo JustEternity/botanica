@@ -33,6 +33,7 @@ import AndroidContextMenu from '../components/AndroidContextMenu';
 import EditMenuItemModal from '../components/EditMenuItemModal';
 import FloatingCartButton from '../components/FloatingCartButton';
 import CartModal from '../components/CartModal';
+import { incrementGlobalMenuVersion, incrementImageVersion } from '../utils/imageCache';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -150,17 +151,44 @@ const MenuItemComponent: React.FC<{
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
+  // Для веба используем ref для сохранения состояния между перерисовками
+  const imageStateRef = useRef({
+    loaded: false,
+    error: false,
+    url: ''
+  });
+
   // Разные размеры изображения для мобильного и grid режима
   const imageSize = isGridLayout ? 400 : 160;
-  const optimizedImageUrl = getOptimizedImageUrl(item.image, imageSize, imageSize);
+
+  // Универсальная функция для получения URL изображения
+  const getImageUrl = useCallback((url: string) => {
+    return getOptimizedImageUrl(url, imageSize, imageSize);
+  }, [imageSize]);
+
+  const optimizedImageUrl = getImageUrl(item.image);
 
   const handleImageLoad = useCallback(() => {
     setImageLoaded(true);
-  }, []);
+    setImageError(false);
+    // Сохраняем состояние для веба
+    if (Platform.OS === 'web') {
+      imageStateRef.current.loaded = true;
+      imageStateRef.current.error = false;
+      imageStateRef.current.url = item.image;
+    }
+  }, [item.image]);
 
   const handleImageError = useCallback(() => {
     setImageError(true);
-  }, []);
+    setImageLoaded(true);
+    // Сохраняем состояние для веба
+    if (Platform.OS === 'web') {
+      imageStateRef.current.error = true;
+      imageStateRef.current.loaded = true;
+      imageStateRef.current.url = item.image;
+    }
+  }, [item.image]);
 
   const handlePlusPress = useCallback((e: any) => {
     e.stopPropagation();
@@ -222,6 +250,28 @@ const MenuItemComponent: React.FC<{
     ? [menuStyles.itemDescription, styles.gridItemDescription]
     : menuStyles.itemDescription;
 
+  // Восстанавливаем состояние изображения при монтировании (только для веба)
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      // Если это то же изображение, что было загружено ранее, восстанавливаем состояние
+      if (imageStateRef.current.url === item.image && imageStateRef.current.loaded) {
+        setImageLoaded(true);
+        setImageError(imageStateRef.current.error);
+      } else {
+        // Сбрасываем состояние только для нового изображения
+        setImageLoaded(false);
+        setImageError(false);
+        imageStateRef.current.loaded = false;
+        imageStateRef.current.error = false;
+        imageStateRef.current.url = item.image;
+      }
+    } else {
+      // Для мобильных устройств всегда сбрасываем состояние
+      setImageLoaded(false);
+      setImageError(false);
+    }
+  }, [item.image, item.id]);
+
   return (
     <View style={containerStyle}>
       <TouchableOpacity
@@ -257,6 +307,7 @@ const MenuItemComponent: React.FC<{
         )}
 
         <View style={imageContainerStyle}>
+          {/* Плейсхолдер - показываем всегда, реальное изображение поверх */}
           <Image
             source={require('../../assets/botanicaplaceholder.jpg')}
             style={imageStyle}
@@ -274,6 +325,8 @@ const MenuItemComponent: React.FC<{
               resizeMode="cover"
               onLoad={handleImageLoad}
               onError={handleImageError}
+              // Используем разные ключи для веба и мобильных устройств
+              key={Platform.OS === 'web' ? `web-${item.id}` : `mobile-${item.id}-${Date.now()}`}
             />
           )}
         </View>
@@ -329,7 +382,8 @@ const MenuItemComponent: React.FC<{
 }, (prevProps, nextProps) => {
   return prevProps.item.id === nextProps.item.id &&
          prevProps.item.is_available === nextProps.item.is_available &&
-         prevProps.isGridLayout === nextProps.isGridLayout;
+         prevProps.isGridLayout === nextProps.isGridLayout &&
+         prevProps.item.image === nextProps.item.image;
 });
 
 // Основной компонент экрана меню
@@ -763,6 +817,8 @@ export default function MenuScreen() {
       case 'delete':
         try {
           await ApiService.deleteMenuItem(item.id, item.cloudinary_public_id);
+          // Инвалидируем кеш при удалении
+          incrementGlobalMenuVersion();
           Alert.alert('Успех', 'Товар успешно удален');
           loadMenuData();
         } catch (error) {
@@ -774,6 +830,8 @@ export default function MenuScreen() {
         try {
           const newVisibility = !item.is_available;
           await ApiService.toggleMenuItemVisibility(item.id, newVisibility);
+          // Инвалидируем кеш при изменении видимости
+          incrementGlobalMenuVersion();
           Alert.alert('Успех', `Товар ${newVisibility ? 'опубликован' : 'скрыт'}`);
           loadMenuData();
         } catch (error) {
@@ -795,8 +853,18 @@ export default function MenuScreen() {
 
   const handleSaveItem = useCallback(async (itemData: MenuItem) => {
     try {
-      loadMenuData();
+      // Увеличиваем глобальную версию меню для инвалидации кеша на всех устройствах
+      incrementGlobalMenuVersion();
+
+      // Увеличиваем версию конкретного изображения
+      if (itemData.image) {
+        incrementImageVersion(itemData.image);
+      }
+
+      // Принудительно обновляем данные меню
+      await loadMenuData();
     } catch (error) {
+      console.error('Error saving item:', error);
       Alert.alert('Ошибка', 'Не удалось сохранить товар');
     }
   }, [loadMenuData]);
