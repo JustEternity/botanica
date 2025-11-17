@@ -13,10 +13,15 @@ import {
     Dimensions,
     Platform,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { MenuItem, MenuCategory } from '../types';
 import { ApiService } from '../services/api';
 import { getOptimizedImageUrl } from '../utils/imageUtils';
+
+// Условный импорт для мобильных платформ
+let ImagePicker: any;
+if (Platform.OS !== 'web') {
+    ImagePicker = require('expo-image-picker');
+}
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -56,9 +61,11 @@ export default function EditMenuItemModal({
     const [isUploading, setIsUploading] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [imageLoading, setImageLoading] = useState(true);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-    // Refs для скролла категорий
+    // Refs для скролла категорий и файлового инпута (только для веба)
     const categoriesScrollRef = useRef<ScrollView>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const categoryPositions = useRef<{[key: string]: number}>({});
     const categoryWidths = useRef<{[key: string]: number}>({});
 
@@ -77,6 +84,7 @@ export default function EditMenuItemModal({
                 setIsNewImage(false);
                 setImageError(false);
                 setImageLoading(true);
+                setSelectedFile(null);
             } else {
                 setFormData({
                     name: '',
@@ -88,6 +96,7 @@ export default function EditMenuItemModal({
                 setIsNewImage(false);
                 setImageError(false);
                 setImageLoading(true);
+                setSelectedFile(null);
             }
         }
     }, [visible, item, categories]);
@@ -95,13 +104,11 @@ export default function EditMenuItemModal({
     // Автоматический скролл к выбранной категории
     useEffect(() => {
         if (visible && formData.category_id && categoriesScrollRef.current) {
-            // Ждем немного, чтобы layout успел обновиться
             const timer = setTimeout(() => {
                 const selectedPosition = categoryPositions.current[formData.category_id];
                 const selectedWidth = categoryWidths.current[formData.category_id];
-                
+
                 if (selectedPosition !== undefined && selectedWidth !== undefined) {
-                    // Вычисляем позицию для центрирования
                     const scrollPosition = Math.max(0, selectedPosition - (SCREEN_WIDTH - selectedWidth) / 2);
                     categoriesScrollRef.current?.scrollTo({
                         x: scrollPosition,
@@ -109,7 +116,7 @@ export default function EditMenuItemModal({
                     });
                 }
             }, 150);
-            
+
             return () => clearTimeout(timer);
         }
     }, [visible, formData.category_id, categories]);
@@ -121,8 +128,18 @@ export default function EditMenuItemModal({
         }));
     };
 
-    const handleImagePick = async () => {
+    // Мобильная версия выбора изображения
+    const handleImagePickMobile = async () => {
         try {
+            // Запрашиваем разрешения
+            if (Platform.OS !== 'web') {
+                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                if (status !== 'granted') {
+                    Alert.alert('Ошибка', 'Необходимо разрешение для доступа к галерее');
+                    return;
+                }
+            }
+
             let result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ['images'],
                 allowsEditing: true,
@@ -138,6 +155,7 @@ export default function EditMenuItemModal({
                 setIsNewImage(true);
                 setImageError(false);
                 setImageLoading(true);
+                setSelectedFile(null);
             } else {
                 console.log('User cancelled image picker');
             }
@@ -147,11 +165,58 @@ export default function EditMenuItemModal({
         }
     };
 
+    // Веб-версия выбора изображения
+    const handleImagePickWeb = () => {
+        fileInputRef.current?.click();
+    };
+
+    // Универсальный обработчик
+    const handleImagePick = () => {
+        if (Platform.OS === 'web') {
+            handleImagePickWeb();
+        } else {
+            handleImagePickMobile();
+        }
+    };
+
+    // Обработчик выбора файла (только для веба)
+    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        // Проверка типа файла
+        if (!file.type.startsWith('image/')) {
+            Alert.alert('Ошибка', 'Пожалуйста, выберите файл изображения');
+            return;
+        }
+
+        // Проверка размера файла (максимум 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            Alert.alert('Ошибка', 'Размер файла не должен превышать 5MB');
+            return;
+        }
+
+        // Сохраняем файл для загрузки
+        setSelectedFile(file);
+
+        // Создаем временный URL для предпросмотра
+        const objectUrl = URL.createObjectURL(file);
+        setSelectedImage(objectUrl);
+        setIsNewImage(true);
+        setImageError(false);
+        setImageLoading(true);
+
+        // Сбрасываем значение input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
     // Функция для получения оптимизированного URL изображения
     const getDisplayImageUrl = (imageUri: string | null) => {
         if (!imageUri) return null;
 
-        if (imageUri.startsWith('file://') || imageUri.startsWith('content://')) {
+        if (imageUri.startsWith('blob:') || imageUri.startsWith('file://') || imageUri.startsWith('content://')) {
             return imageUri;
         }
 
@@ -208,7 +273,7 @@ export default function EditMenuItemModal({
         }
     };
 
-    // Прямая загрузка в Cloudinary с перезаписью существующих изображений
+    // Универсальная загрузка в Cloudinary
     const uploadImageToCloudinaryDirectly = async (imageUri: string): Promise<{ public_id: string, secure_url: string }> => {
         try {
             setIsUploading(true);
@@ -223,16 +288,22 @@ export default function EditMenuItemModal({
             }
 
             const signatureData = await getCloudinarySignature(targetPublicId);
-
             const formData = new FormData();
-            const filename = imageUri.split('/').pop() || 'upload.jpg';
-            const fileType = filename.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
 
-            formData.append('file', {
-                uri: imageUri,
-                type: fileType,
-                name: filename,
-            } as any);
+            if (Platform.OS === 'web' && selectedFile) {
+                // Веб-версия: используем File объект напрямую
+                formData.append('file', selectedFile);
+            } else {
+                // Мобильная версия: используем старую логику
+                const filename = imageUri.split('/').pop() || 'upload.jpg';
+                const fileType = filename.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+
+                formData.append('file', {
+                    uri: imageUri,
+                    type: fileType,
+                    name: filename,
+                } as any);
+            }
 
             formData.append('timestamp', signatureData.timestamp.toString());
             formData.append('signature', signatureData.signature);
@@ -254,9 +325,11 @@ export default function EditMenuItemModal({
             const response = await fetch(cloudinaryUrl, {
                 method: 'POST',
                 body: formData,
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
+                ...(Platform.OS !== 'web' && {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                }),
             });
 
             if (!response.ok) {
@@ -370,6 +443,10 @@ export default function EditMenuItemModal({
 
     const handleClose = () => {
         if (!isLoading && !isUploading) {
+            // Освобождаем blob URL при закрытии (только для веба)
+            if (Platform.OS === 'web' && selectedImage && selectedImage.startsWith('blob:')) {
+                URL.revokeObjectURL(selectedImage);
+            }
             onClose();
         }
     };
@@ -383,6 +460,17 @@ export default function EditMenuItemModal({
             visible={visible}
             onRequestClose={handleClose}
         >
+            {/* Скрытый input для выбора файла (только для веба) */}
+            {Platform.OS === 'web' && (
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    style={{ display: 'none' }}
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                />
+            )}
+
             <View style={styles.modalContainer}>
                 <View style={styles.modalContent}>
                     <View style={styles.header}>
@@ -562,6 +650,7 @@ export default function EditMenuItemModal({
     );
 }
 
+// Стили остаются без изменений
 const styles = StyleSheet.create({
     modalContainer: {
         flex: 1,
