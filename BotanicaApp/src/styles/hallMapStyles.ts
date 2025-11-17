@@ -556,4 +556,57 @@ export const hallMapStyles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
+  webTimeDropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    marginTop: 4,
+    zIndex: 1000,
+    maxHeight: 200,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+
+  webTimeScrollView: {
+    maxHeight: 200,
+  },
+
+  webTimeOption: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  webTimeOptionSelected: {
+    backgroundColor: '#3b82f6',
+  },
+
+  webTimeOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+
+  webTimeOptionTextSelected: {
+    color: 'white',
+  },
+
+  webTimeOptionDate: {
+    fontSize: 12,
+    color: '#64748b',
+  },
 });

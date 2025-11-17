@@ -13,6 +13,7 @@ import {
   Dimensions,
   NativeTouchEvent,
   ImageBackground,
+  ScrollView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
@@ -29,8 +30,6 @@ import { ru } from 'date-fns/locale/ru';
 registerLocale('ru', ru);
 
 const { width, height } = Dimensions.get('window');
-
-// Размеры вашей картинки
 const CONTENT_WIDTH = 800;
 const CONTENT_HEIGHT = 600;
 const isWeb = Platform.OS === 'web';
@@ -65,7 +64,6 @@ const webDatePickerStyles = `
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-
   }
   .react-datepicker__header {
     background-color: #3b82f6;
@@ -86,7 +84,7 @@ const webDatePickerStyles = `
   .react-datepicker__time-box {
     width: 100% !important;
   }
-    .map-container-web {
+  .map-container-web {
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -102,7 +100,7 @@ type DateTimePickerEvent = {
   };
 };
 
-// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ВНЕ КОМПОНЕНТА
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 const enforce15MinuteIntervals = (date: Date): Date => {
   const newDate = new Date(date);
   const minutes = newDate.getMinutes();
@@ -111,61 +109,155 @@ const enforce15MinuteIntervals = (date: Date): Date => {
   return newDate;
 };
 
-// Проверка что время начала в рабочем интервале (12:00-03:00)
+// УПРОЩЕННАЯ ВАЛИДАЦИЯ ВРЕМЕНИ
 const isValidStartTime = (time: Date) => {
   const hours = time.getHours();
-  return (hours >= 12) || (hours < 4);
+  const minutes = time.getMinutes();
+
+  // Разрешаем время с 12:00 до 4:00 следующего дня
+  return (hours >= 12 && hours <= 23) ||
+         (hours >= 0 && hours < 4) ||
+         (hours === 4 && minutes === 0);
 };
 
-// Проверка что время окончания в рабочем интервале (13:00-04:00)
 const isValidEndTime = (time: Date) => {
   const hours = time.getHours();
-  return (hours >= 13) || (hours < 5);
+  const minutes = time.getMinutes();
+
+  // Разрешаем время с 13:00 до 4:00 следующего дня
+  return (hours >= 13 && hours <= 23) ||
+         (hours >= 0 && hours < 4) ||
+         (hours === 4 && minutes === 0);
 };
 
-// Функция проверки, что время не в прошлом
 const isNotPastTime = (time: Date) => {
   const now = new Date();
-  // Добавляем буфер в 5 минут, чтобы избежать проблем с округлением
   const bufferTime = new Date(now.getTime() - 5 * 60 * 1000);
   return time >= bufferTime;
 };
 
-// Обновленная функция проверки одной смены
+// УПРОЩЕННАЯ ПРОВЕРКА СМЕНЫ
 const isSameWorkingShift = (startTime: Date, endTime: Date): boolean => {
   const startHours = startTime.getHours();
   const endHours = endTime.getHours();
 
-  // Если начало в ночной смене (00:00-04:00)
+  // Если начало до 4 утра
   if (startHours < 4) {
-    // Окончание должно быть до 04:00 того же дня
-    return endHours < 4 && startTime.getDate() === endTime.getDate();
+    // Конец должен быть в тот же день до 4:00
+    return (endHours < 4 || (endHours === 4 && endTime.getMinutes() === 0)) &&
+           startTime.getDate() === endTime.getDate();
   }
 
-  // Если начало в дневной смене (12:00-23:59)
+  // Если начало после 12:00
   if (startHours >= 12) {
-    // Окончание может быть до 04:00 следующего дня
-    if (endHours < 4) {
+    // Конец может быть в тот же день после 13:00 ИЛИ на следующий день до 4:00
+    if (endHours < 4 || (endHours === 4 && endTime.getMinutes() === 0)) {
       return endTime.getDate() === startTime.getDate() + 1;
     } else {
-      return startTime.getDate() === endTime.getDate();
+      return endTime.getHours() >= 13 && startTime.getDate() === endTime.getDate();
     }
   }
 
-  // Время начала вне рабочих часов (04:00-12:00) - не должно происходить
   return false;
 };
 
-const setEndTimeOneHourLater = (start: Date) => {
-  const end = new Date(start);
-  end.setHours(end.getHours() + 1);
-  return enforce15MinuteIntervals(end);
+// Функция для веб-версии (аналогичная мобильной)
+const isSameWorkingShiftWeb = isSameWorkingShift;
+
+const validateReservationTime = (
+  startTime: Date,
+  endTime: Date
+): { isValid: boolean; error?: string } => {
+  const now = new Date();
+
+  if (startTime < now) {
+    return {
+      isValid: false,
+      error: 'Нельзя выбрать прошедшее время'
+    };
+  }
+
+  if (!isValidStartTime(startTime)) {
+    return {
+      isValid: false,
+      error: 'Время начала должно быть между 12:00 и 04:00'
+    };
+  }
+
+  if (!isValidEndTime(endTime)) {
+    return {
+      isValid: false,
+      error: 'Время окончания должно быть между 13:00 и 04:00'
+    };
+  }
+
+  const durationMs = endTime.getTime() - startTime.getTime();
+  const durationHours = durationMs / (1000 * 60 * 60);
+  if (durationHours < 1) {
+    return {
+      isValid: false,
+      error: 'Минимальное время бронирования - 1 час'
+    };
+  }
+
+  const isSameShift = isWeb
+    ? isSameWorkingShiftWeb(startTime, endTime)
+    : isSameWorkingShift(startTime, endTime);
+
+  if (!isSameShift) {
+    return {
+      isValid: false,
+      error: 'Нельзя выбрать время из разных рабочих смен'
+    };
+  }
+
+  return { isValid: true };
 };
 
 const hasMinimumInterval = (start: Date, end: Date) => {
   const diffMs = end.getTime() - start.getTime();
   const diffHours = diffMs / (1000 * 60 * 60);
   return diffHours >= 1;
+};
+
+// Функция для получения валидных времен окончания
+const getValidEndTimes = (startTime: Date): Date[] => {
+  const validTimes: Date[] = [];
+  const start = new Date(startTime);
+
+  // Добавляем 4:00 как валидное время окончания
+  const fourOClock = new Date(start);
+  if (start.getHours() < 4) {
+    // Если начало до 4:00, то 4:00 того же дня
+    fourOClock.setHours(4, 0, 0, 0);
+  } else {
+    // Если начало после 12:00, то 4:00 следующего дня
+    fourOClock.setDate(fourOClock.getDate() + 1);
+    fourOClock.setHours(4, 0, 0, 0);
+  }
+
+  // Генерируем времена с интервалом 15 минут
+  let current = new Date(start);
+  current.setHours(current.getHours() + 1);
+  current = enforce15MinuteIntervals(current);
+
+  while (current <= fourOClock) {
+    if (isValidEndTime(current) && hasMinimumInterval(startTime, current)) {
+      validTimes.push(new Date(current));
+    }
+    current = new Date(current.getTime() + 15 * 60 * 1000);
+  }
+
+  // Убедимся, что 4:00 включено
+  if (isValidEndTime(fourOClock) &&
+      hasMinimumInterval(startTime, fourOClock) &&
+      !validTimes.some(t => t.getTime() === fourOClock.getTime())) {
+    validTimes.push(fourOClock);
+  }
+
+  return validTimes
+    .filter(time => time > startTime)
+    .sort((a, b) => a.getTime() - b.getTime());
 };
 
 export default function HallMapScreen() {
@@ -187,107 +279,37 @@ export default function HallMapScreen() {
     const now = new Date();
     let startTime = enforce15MinuteIntervals(now);
 
-    // Если сейчас нерабочее время, устанавливаем на ближайшее рабочее
     if (!isValidStartTime(startTime)) {
       startTime = new Date(now);
-
       const currentHours = now.getHours();
+
       if (currentHours >= 4 && currentHours < 12) {
-        // Если между 04:00 и 12:00 - ставим на 12:00 сегодня
         startTime.setHours(12, 0, 0, 0);
       } else {
-        // Если между 03:00 и 04:00 - ставим на 12:00 следующего дня
         startTime.setDate(startTime.getDate() + 1);
         startTime.setHours(12, 0, 0, 0);
       }
     }
 
-    // Устанавливаем окончание в пределах той же смены
     const endTime = calculateEndTimeWithinSameShift(startTime);
-
     return { startTime, endTime };
   };
 
-  // Новая функция для расчета времени окончания в пределах одной смены
   const calculateEndTimeWithinSameShift = (startTime: Date): Date => {
     const endTime = new Date(startTime);
     endTime.setHours(endTime.getHours() + 1);
 
-    // Если время окончания выходит за пределы смены, устанавливаем максимальное время для текущей смены
+    // Если после добавления часа мы выходим за пределы смены, устанавливаем 4:00
     if (!isSameWorkingShift(startTime, endTime)) {
-      const startHours = startTime.getHours();
-
-      if (startHours < 4) {
-        // Если начало в ночной смене (до 4 утра), окончание - 4:00 того же дня
+      if (startTime.getHours() < 4) {
         endTime.setHours(4, 0, 0, 0);
-      } else if (startHours >= 12) {
-        // Если начало в дневной смене (после 12:00), окончание - 4:00 следующего дня
+      } else {
         endTime.setDate(endTime.getDate() + 1);
         endTime.setHours(4, 0, 0, 0);
       }
     }
 
-    // Проверяем, что окончание не раньше 13:00
-    if (endTime.getHours() < 13 && endTime.getHours() >= 4) {
-      endTime.setHours(13, 0, 0, 0);
-    }
-
     return enforce15MinuteIntervals(endTime);
-  };
-
-  // Функция для проверки валидности времени бронирования
-  const validateReservationTime = (
-    startTime: Date,
-    endTime: Date
-  ): { isValid: boolean; error?: string } => {
-    const now = new Date();
-
-    // Проверка, что время начала не в прошлом
-    if (startTime < now) {
-      return {
-        isValid: false,
-        error: 'Нельзя выбрать прошедшее время'
-      };
-    }
-
-    const startHours = startTime.getHours();
-    const endHours = endTime.getHours();
-
-    // Проверка времени начала (12:00 - 03:00)
-    if (!isValidStartTime(startTime)) {
-      return {
-        isValid: false,
-        error: 'Время начала должно быть между 12:00 и 03:00'
-      };
-    }
-
-    // Проверка времени окончания (13:00 - 04:00)
-    if (!isValidEndTime(endTime)) {
-      return {
-        isValid: false,
-        error: 'Время окончания должно быть между 13:00 и 04:00'
-      };
-    }
-
-    // Проверка минимальной продолжительности (1 час)
-    const durationMs = endTime.getTime() - startTime.getTime();
-    const durationHours = durationMs / (1000 * 60 * 60);
-    if (durationHours < 1) {
-      return {
-        isValid: false,
-        error: 'Минимальное время бронирования - 1 час'
-      };
-    }
-
-    // Проверка, что время в пределах одной рабочей смены
-    if (!isSameWorkingShift(startTime, endTime)) {
-      return {
-        isValid: false,
-        error: 'Нельзя выбрать время из разных рабочих смен'
-      };
-    }
-
-    return { isValid: true };
   };
 
   const [startTime, setStartTime] = useState(() => {
@@ -299,7 +321,6 @@ export default function HallMapScreen() {
     return enforce15MinuteIntervals(nearestEnd);
   });
 
-  // Эффект для валидации времени при изменении
   useEffect(() => {
     if (startTime && endTime) {
       const validation = validateReservationTime(startTime, endTime);
@@ -311,82 +332,158 @@ export default function HallMapScreen() {
     }
   }, [startTime, endTime]);
 
-  // Функция фильтрации времени для веб-пикера окончания
-  const filterEndTime = (time: Date) => {
-    const hours = time.getHours();
-    const minutes = time.getMinutes();
+  // УЛУЧШЕННЫЕ ОБРАБОТЧИКИ ДЛЯ МОБИЛЬНЫХ ПИКЕРОВ
+  const handleMobileStartTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === 'ios') {
+      if (event.type === 'set' && selectedDate) {
+        const newStartTime = enforce15MinuteIntervals(selectedDate);
 
-    // Для времени окончания разрешаем только 13:00 - 04:00
-    if (hours >= 13 || hours < 5) {
-      return true;
+        if (!isNotPastTime(newStartTime)) {
+          Alert.alert('Ошибка', 'Нельзя выбрать прошедшее время');
+          return;
+        }
+
+        if (!isValidStartTime(newStartTime)) {
+          Alert.alert('Ошибка', 'Время начала должно быть между 12:00 и 04:00');
+          return;
+        }
+
+        setStartTime(newStartTime);
+
+        // Автоматически устанавливаем конечное время
+        const newEndTime = calculateEndTimeWithinSameShift(newStartTime);
+        setEndTime(newEndTime);
+      }
+      setShowStartPicker(false);
     }
-
-    return false;
   };
 
-  // Функция фильтрации времени для веб-пикера начала
-  const filterStartTime = (time: Date) => {
-    const hours = time.getHours();
-    const minutes = time.getMinutes();
+  const handleMobileEndTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === 'ios') {
+      if (event.type === 'set' && selectedDate) {
+        const newEndTime = enforce15MinuteIntervals(selectedDate);
 
-    // Для времени начала разрешаем только 12:00 - 03:00
-    if (hours >= 12 || hours < 4) {
-      return true;
+        const validation = validateReservationTime(startTime, newEndTime);
+        if (!validation.isValid) {
+          Alert.alert('Ошибка', validation.error || 'Некорректное время');
+          return;
+        }
+
+        setEndTime(newEndTime);
+      }
+      setShowEndPicker(false);
     }
-
-    return false;
   };
 
-  // УЛУЧШЕННЫЕ ОБРАБОТЧИКИ ДЛЯ WEB
+  // УЛУЧШЕННЫЕ ОБРАБОТЧИКИ ДЛЯ ANDROID
+  // УЛУЧШЕННЫЕ ОБРАБОТЧИКИ ДЛЯ ANDROID
+  const handleAndroidStartTimeChange = () => {
+    DateTimePickerAndroid.open({
+      value: startTime,
+      mode: 'date',
+      is24Hour: true,
+      display: 'default',
+      onChange: (event, selectedDate) => {
+        if (event.type === 'set' && selectedDate) {
+          // После выбора даты, открываем time picker
+          DateTimePickerAndroid.open({
+            value: startTime,
+            mode: 'time',
+            is24Hour: true,
+            display: 'default',
+            onChange: (timeEvent, selectedTime) => {
+              if (timeEvent.type === 'set' && selectedTime) {
+                // Объединяем выбранную дату и время
+                const newDateTime = new Date(selectedDate);
+                newDateTime.setHours(selectedTime.getHours(), selectedTime.getMinutes());
+                const newStartTime = enforce15MinuteIntervals(newDateTime);
+
+                if (!isNotPastTime(newStartTime)) {
+                  Alert.alert('Ошибка', 'Нельзя выбрать прошедшее время');
+                  return;
+                }
+
+                if (!isValidStartTime(newStartTime)) {
+                  Alert.alert('Ошибка', 'Время начала должно быть между 12:00 и 04:00');
+                  return;
+                }
+
+                setStartTime(newStartTime);
+
+                // Автоматически устанавливаем конечное время
+                const newEndTime = calculateEndTimeWithinSameShift(newStartTime);
+                setEndTime(newEndTime);
+              }
+            },
+          });
+        }
+      },
+    });
+  };
+
+  const handleAndroidEndTimeChange = () => {
+    DateTimePickerAndroid.open({
+      value: endTime,
+      mode: 'date',
+      is24Hour: true,
+      display: 'default',
+      onChange: (event, selectedDate) => {
+        if (event.type === 'set' && selectedDate) {
+          DateTimePickerAndroid.open({
+            value: endTime,
+            mode: 'time',
+            is24Hour: true,
+            display: 'default',
+            onChange: (timeEvent, selectedTime) => {
+              if (timeEvent.type === 'set' && selectedTime) {
+                const newDateTime = new Date(selectedDate);
+                newDateTime.setHours(selectedTime.getHours(), selectedTime.getMinutes());
+                const newEndTime = enforce15MinuteIntervals(newDateTime);
+
+                const validation = validateReservationTime(startTime, newEndTime);
+                if (!validation.isValid) {
+                  Alert.alert('Ошибка', validation.error || 'Некорректное время');
+                  return;
+                }
+
+                setEndTime(newEndTime);
+              }
+            },
+          });
+        }
+      },
+    });
+  };
+
+  // ОБРАБОТЧИКИ ДЛЯ WEB (остаются без изменений)
   const handleWebStartTimeChange = (date: Date | null) => {
     if (date) {
-      let newStartTime = enforce15MinuteIntervals(date);
+      const newStartTime = enforce15MinuteIntervals(date);
 
-      // Проверяем, что время не в прошлом
       if (!isNotPastTime(newStartTime)) {
         Alert.alert('Ошибка', 'Нельзя выбрать прошедшее время');
         return;
       }
 
-      // Проверяем рабочее время
       if (!isValidStartTime(newStartTime)) {
-        Alert.alert('Ошибка', 'Время начала должно быть между 12:00 и 03:00');
+        Alert.alert('Ошибка', 'Время начала должно быть между 12:00 и 04:00');
         return;
       }
 
       setStartTime(newStartTime);
 
-      // Автоматически устанавливаем окончание с учетом перехода через полночь
-      let newEndTime = calculateProperEndTime(newStartTime);
+      const newEndTime = calculateEndTimeWithinSameShift(newStartTime);
       setEndTime(newEndTime);
     }
   };
 
   const handleWebEndTimeChange = (date: Date | null) => {
     if (date) {
-      let newEndTime = enforce15MinuteIntervals(date);
+      const newEndTime = enforce15MinuteIntervals(date);
 
-      // Проверяем, что время не в прошлом
-      if (!isNotPastTime(newEndTime)) {
-        Alert.alert('Ошибка', 'Нельзя выбрать прошедшее время');
-        return;
-      }
-
-      // Проверяем рабочее время окончания
-      if (!isValidEndTime(newEndTime)) {
-        Alert.alert('Ошибка', 'Время окончания должно быть между 13:00 и 04:00');
-        return;
-      }
-
-      // Проверяем минимальный интервал
-      if (newEndTime <= startTime) {
-        Alert.alert('Ошибка', 'Время окончания должно быть позже времени начала');
-        return;
-      }
-
-      // Проверяем одну смену
-      if (!isSameWorkingShift(startTime, newEndTime)) {
-        Alert.alert('Ошибка', 'Нельзя выбрать время из разных рабочих смен');
+      const validation = validateReservationTime(startTime, newEndTime);
+      if (!validation.isValid) {
+        Alert.alert('Ошибка', validation.error || 'Некорректное время');
         return;
       }
 
@@ -394,67 +491,43 @@ export default function HallMapScreen() {
     }
   };
 
-  // Новая функция для корректного расчета времени окончания с учетом перехода через полночь
-  const calculateProperEndTime = (startTime: Date): Date => {
-    const startHours = startTime.getHours();
-    let endTime = new Date(startTime);
-
-    // Если начало в ночной смене (00:00-03:59)
-    if (startHours < 4) {
-      // Устанавливаем окончание на 1 час позже, но не позже 04:00
-      endTime.setHours(endTime.getHours() + 1);
-      if (endTime.getHours() >= 4) {
-        endTime.setHours(4, 0, 0, 0);
-      }
+  // Функции для открытия пикеров
+  const openStartTimePicker = () => {
+    if (Platform.OS === 'web') {
+      return;
+    } else if (Platform.OS === 'ios') {
+      setShowEndPicker(false);
+      setShowStartPicker(true);
+    } else {
+      handleAndroidStartTimeChange();
     }
-    // Если начало в дневной смене (12:00-23:59)
-    else if (startHours >= 12) {
-      endTime.setHours(endTime.getHours() + 1);
-
-      // Если переход через полночь
-      if (endTime.getHours() === 0) {
-        // Это корректно - окончание в 00:00 следующего дня
-      }
-      // Если установилось время между 04:00 и 13:00
-      else if (endTime.getHours() >= 4 && endTime.getHours() < 13) {
-        // Переносим на 13:00 того же дня
-        endTime.setHours(13, 0, 0, 0);
-      }
-      // Если вышли за пределы рабочей смены (после 04:00 следующего дня)
-      else if (endTime.getHours() >= 4 && endTime.getDate() !== startTime.getDate()) {
-        endTime.setHours(4, 0, 0, 0);
-      }
-    }
-
-    return enforce15MinuteIntervals(endTime);
   };
 
-  // Добавляем стили для веб-пикера
-  useEffect(() => {
+  const openEndTimePicker = () => {
     if (Platform.OS === 'web') {
-      const styleElement = document.createElement('style');
-      styleElement.textContent = webDatePickerStyles;
-      document.head.appendChild(styleElement);
-
-      return () => {
-        document.head.removeChild(styleElement);
-      };
+      return;
+    } else if (Platform.OS === 'ios') {
+      setShowStartPicker(false);
+      setShowEndPicker(true);
+    } else {
+      handleAndroidEndTimeChange();
     }
-  }, []);
+  };
 
-  // Компонент для веб-пикера начала
+  // Веб-компоненты (остаются без изменений)
   const WebStartDatePicker = ({ selected, onChange, label }: any) => (
     <View style={hallMapStyles.webDatePickerContainer}>
       <DatePicker
         selected={selected}
         onChange={onChange}
         showTimeSelect
+        showTimeSelectOnly={false}
         timeFormat="HH:mm"
         timeIntervals={15}
         dateFormat="dd.MM.yyyy HH:mm"
         timeCaption="Время"
         locale="ru"
-        filterTime={filterStartTime}
+        minDate={new Date()}
         className="react-datepicker__input-container"
         wrapperClassName="web-date-picker-wrapper"
         customInput={
@@ -471,37 +544,80 @@ export default function HallMapScreen() {
     </View>
   );
 
-  // Компонент для веб-пикера окончания
-  const WebEndDatePicker = ({ selected, onChange, label }: any) => (
-    <View style={hallMapStyles.webDatePickerContainer}>
-      <DatePicker
-        selected={selected}
-        onChange={onChange}
-        showTimeSelect
-        timeFormat="HH:mm"
-        timeIntervals={15}
-        dateFormat="dd.MM.yyyy HH:mm"
-        timeCaption="Время"
-        locale="ru"
-        filterTime={filterEndTime}
-        minDate={startTime}
-        className="react-datepicker__input-container"
-        wrapperClassName="web-date-picker-wrapper"
-        customInput={
-          <TouchableOpacity style={hallMapStyles.webDatePickerButton}>
-            <Text style={hallMapStyles.webDatePickerText}>
-              {formatTime(selected)}
-            </Text>
-            <Text style={hallMapStyles.webDatePickerDateText}>
-              {formatDateCompact(selected)}
-            </Text>
-          </TouchableOpacity>
-        }
-      />
-    </View>
-  );
+  const WebEndDatePicker = ({ selected, onChange, startTime, label }: any) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const validEndTimes = getValidEndTimes(startTime);
 
-  // Форматирование времени
+    const handleTimeSelect = (time: Date) => {
+      onChange(time);
+      setIsOpen(false);
+    };
+
+    const formatTimeForDisplay = (date: Date) => {
+      return date.toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    };
+
+    const formatDateForDisplay = (date: Date) => {
+      const today = new Date();
+      const isToday = date.toDateString() === today.toDateString();
+      const isTomorrow = date.toDateString() === new Date(today.getTime() + 24 * 60 * 60 * 1000).toDateString();
+
+      if (isToday) return 'сегодня';
+      if (isTomorrow) return 'завтра';
+
+      return date.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'numeric',
+      }).replace('/', '.');
+    };
+
+    return (
+      <View style={hallMapStyles.webDatePickerContainer}>
+        <TouchableOpacity
+          style={hallMapStyles.webDatePickerButton}
+          onPress={() => setIsOpen(!isOpen)}
+        >
+          <Text style={hallMapStyles.webDatePickerText}>
+            {formatTimeForDisplay(selected)}
+          </Text>
+          <Text style={hallMapStyles.webDatePickerDateText}>
+            {formatDateForDisplay(selected)}
+          </Text>
+        </TouchableOpacity>
+
+        {isOpen && (
+          <View style={hallMapStyles.webTimeDropdown}>
+            <ScrollView style={hallMapStyles.webTimeScrollView}>
+              {validEndTimes.map((time, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    hallMapStyles.webTimeOption,
+                    time.getTime() === selected.getTime() && hallMapStyles.webTimeOptionSelected
+                  ]}
+                  onPress={() => handleTimeSelect(time)}
+                >
+                  <Text style={[
+                    hallMapStyles.webTimeOptionText,
+                    time.getTime() === selected.getTime() && hallMapStyles.webTimeOptionTextSelected
+                  ]}>
+                    {formatTimeForDisplay(time)}
+                  </Text>
+                  <Text style={hallMapStyles.webTimeOptionDate}>
+                    {formatDateForDisplay(time)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('ru-RU', {
       hour: '2-digit',
@@ -531,228 +647,7 @@ export default function HallMapScreen() {
     }).replace('/', '.');
   };
 
-  // Универсальные функции открытия пикеров
-  const openStartTimePicker = () => {
-    if (Platform.OS === 'web') {
-      // Для веба ничего не делаем - DatePicker открывается автоматически
-      return;
-    } else if (Platform.OS === 'ios') {
-      setShowEndPicker(false);
-      setShowStartPicker(true);
-    } else {
-      openStartPickerAndroid();
-    }
-  };
-
-  const openEndTimePicker = () => {
-    if (Platform.OS === 'web') {
-      // Для веба ничего не делаем - DatePicker открывается автоматически
-      return;
-    } else if (Platform.OS === 'ios') {
-      setShowStartPicker(false);
-      setShowEndPicker(true);
-    } else {
-      openEndPickerAndroid();
-    }
-  };
-
-  // ОБНОВЛЕННЫЕ ОБРАБОТЧИКИ ДЛЯ ANDROID С ПРОВЕРКОЙ ПРОШЕДШЕГО ВРЕМЕНИ
-  const openStartPickerAndroid = () => {
-    const now = new Date();
-
-    // Сначала открываем выбор даты
-    DateTimePickerAndroid.open({
-      value: startTime,
-      mode: 'date',
-      display: 'default',
-      onChange: (event: DateTimePickerEvent, selectedDate?: Date) => {
-        if (selectedDate) {
-          // Проверяем, что выбранная дата не в прошлом
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const selectedDateOnly = new Date(selectedDate);
-          selectedDateOnly.setHours(0, 0, 0, 0);
-
-          if (selectedDateOnly < today) {
-            Alert.alert('Ошибка', 'Нельзя выбрать прошедшую дату');
-            return;
-          }
-
-          // После выбора даты открываем выбор времени
-          DateTimePickerAndroid.open({
-            value: startTime,
-            mode: 'time',
-            display: 'default',
-            onChange: (timeEvent: DateTimePickerEvent, selectedTime?: Date) => {
-              if (selectedTime) {
-                // Объединяем выбранную дату и время
-                const newDateTime = new Date(selectedDate);
-                const time = new Date(selectedTime);
-                newDateTime.setHours(time.getHours(), time.getMinutes());
-
-                let newStartTime = enforce15MinuteIntervals(newDateTime);
-
-                // Проверяем, что время не в прошлом
-                if (!isNotPastTime(newStartTime)) {
-                  Alert.alert('Ошибка', 'Нельзя выбрать прошедшее время');
-                  return;
-                }
-
-                // Проверяем только время (часы)
-                if (!isValidStartTime(newStartTime)) {
-                  Alert.alert('Ошибка', 'Время начала должно быть между 12:00 и 03:00');
-                  return;
-                }
-
-                setStartTime(newStartTime);
-
-                // Автоматически обновляем время окончания
-                let newEndTime = calculateProperEndTime(newStartTime);
-                setEndTime(newEndTime);
-              }
-            }
-          });
-        }
-      }
-    });
-  };
-
-  const openEndPickerAndroid = () => {
-    // Сначала открываем выбор даты
-    DateTimePickerAndroid.open({
-      value: endTime,
-      mode: 'date',
-      display: 'default',
-      onChange: (event: DateTimePickerEvent, selectedDate?: Date) => {
-        if (selectedDate) {
-          // Проверяем, что выбранная дата не раньше даты начала
-          const startDateOnly = new Date(startTime);
-          startDateOnly.setHours(0, 0, 0, 0);
-          const selectedDateOnly = new Date(selectedDate);
-          selectedDateOnly.setHours(0, 0, 0, 0);
-
-          if (selectedDateOnly < startDateOnly) {
-            Alert.alert('Ошибка', 'Дата окончания не может быть раньше даты начала');
-            return;
-          }
-
-          // После выбора даты открываем выбор времени
-          DateTimePickerAndroid.open({
-            value: endTime,
-            mode: 'time',
-            display: 'default',
-            onChange: (timeEvent: DateTimePickerEvent, selectedTime?: Date) => {
-              if (selectedTime) {
-                // Объединяем выбранную дату и время
-                const newDateTime = new Date(selectedDate);
-                const time = new Date(selectedTime);
-                newDateTime.setHours(time.getHours(), time.getMinutes());
-
-                let newEndTime = enforce15MinuteIntervals(newDateTime);
-
-                // Проверяем, что время не в прошлом
-                if (!isNotPastTime(newEndTime)) {
-                  Alert.alert('Ошибка', 'Нельзя выбрать прошедшее время');
-                  return;
-                }
-
-                // Проверяем только время (часы)
-                if (!isValidEndTime(newEndTime)) {
-                  Alert.alert('Ошибка', 'Время окончания должно быть между 13:00 и 04:00');
-                  return;
-                }
-
-                // Проверяем минимальный интервал
-                if (!hasMinimumInterval(startTime, newEndTime)) {
-                  Alert.alert('Ошибка', 'Минимальное время бронирования - 1 час');
-                  return;
-                }
-
-                // Проверяем, что время в одной смене
-                if (!isSameWorkingShift(startTime, newEndTime)) {
-                  Alert.alert('Ошибка', 'Нельзя выбрать время из разных рабочих смен');
-                  return;
-                }
-
-                setEndTime(newEndTime);
-              }
-            }
-          });
-        }
-      }
-    });
-  };
-
-  // ОБНОВЛЕННЫЕ ОБРАБОТЧИКИ ДЛЯ iOS С ПРОВЕРКОЙ ПРОШЕДШЕГО ВРЕМЕНИ
-  const handleStartTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'ios') {
-      // Для iOS оставляем пикер открытым
-    } else {
-      setShowStartPicker(false);
-    }
-
-    if (selectedDate) {
-      let newStartTime = selectedDate;
-
-      // Проверяем, что время не в прошлом
-      if (!isNotPastTime(newStartTime)) {
-        Alert.alert('Ошибка', 'Нельзя выбрать прошедшее время');
-        return;
-      }
-
-      // Проверяем только время (часы)
-      if (!isValidStartTime(newStartTime)) {
-        Alert.alert('Ошибка', 'Время начала должно быть между 12:00 и 03:00');
-        return;
-      }
-
-      setStartTime(newStartTime);
-
-      // Автоматически обновляем время окончания
-      let newEndTime = calculateProperEndTime(newStartTime);
-      setEndTime(newEndTime);
-    }
-  };
-
-  const handleEndTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'ios') {
-      // Для iOS оставляем пикер открытым
-    } else {
-      setShowEndPicker(false);
-    }
-
-    if (selectedDate) {
-      let newEndTime = selectedDate;
-
-      // Проверяем, что время не в прошлом
-      if (!isNotPastTime(newEndTime)) {
-        Alert.alert('Ошибка', 'Нельзя выбрать прошедшее время');
-        return;
-      }
-
-      // Проверяем только время (часы)
-      if (!isValidEndTime(newEndTime)) {
-        Alert.alert('Ошибка', 'Время окончания должно быть между 13:00 и 04:00');
-        return;
-      }
-
-      // Проверяем минимальный интервал
-      if (!hasMinimumInterval(startTime, newEndTime)) {
-        Alert.alert('Ошибка', 'Минимальное время бронирования - 1 час');
-        return;
-      }
-
-      // Проверяем, что время в одной смене
-      if (!isSameWorkingShift(startTime, newEndTime)) {
-        Alert.alert('Ошибка', 'Нельзя выбрать время из разных рабочих смен');
-        return;
-      }
-
-      setEndTime(newEndTime);
-    }
-  };
-
-  // Остальной код для панорамирования и зума остается без изменений
+  // ОСТАЛЬНОЙ КОД КОМПОНЕНТА (без изменений)
   const [transform, setTransform] = useState({
     scale: 1,
     translateX: 0,
@@ -896,7 +791,6 @@ export default function HallMapScreen() {
     })
   ).current;
 
-  // Остальной код загрузки столов и обработчиков UI остается без изменений
   const validateTables = (tables: any[]): Table[] => {
     return tables
       .filter(table =>
@@ -985,7 +879,6 @@ export default function HallMapScreen() {
     loadTables(false);
   }, [startTime, endTime, tablesLastUpdate]);
 
-  // Обработчики UI
   const handleTableSelect = (table: Table) => {
     if (isUpdating) {
       return;
@@ -1110,13 +1003,24 @@ export default function HallMapScreen() {
     setCartModalVisible(false);
   }, []);
 
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const styleElement = document.createElement('style');
+      styleElement.textContent = webDatePickerStyles;
+      document.head.appendChild(styleElement);
+
+      return () => {
+        document.head.removeChild(styleElement);
+      };
+    }
+  }, []);
+
   return (
     <View style={hallMapStyles.container}>
       <View style={[
           hallMapStyles.content,
           isWeb && hallMapStyles.content
         ]}>
-        {/* Панель выбора времени */}
         <View style={hallMapStyles.timeSelectionPanel}>
           <Text style={hallMapStyles.timeSelectionTitle}>Время бронирования</Text>
           <Text style={hallMapStyles.timeRestrictionText}>Доступно с 12:00 до 04:00 следующего дня</Text>
@@ -1187,6 +1091,7 @@ export default function HallMapScreen() {
                   <WebEndDatePicker
                     selected={endTime}
                     onChange={handleWebEndTimeChange}
+                    startTime={startTime}
                     label="Окончание"
                   />
                 ) : (
@@ -1217,15 +1122,15 @@ export default function HallMapScreen() {
               </View>
             </View>
 
-          {/* Показываем нативные пикеры только для iOS */}
+          {/* iOS Pickers */}
           {Platform.OS === 'ios' && showStartPicker && (
             <View style={hallMapStyles.pickerContainer}>
               <DateTimePicker
                 value={startTime}
                 mode="datetime"
                 display="spinner"
-                onChange={handleStartTimeChange}
-                minimumDate={new Date()} // Нельзя выбрать прошедшее время
+                onChange={handleMobileStartTimeChange}
+                minimumDate={new Date()}
                 minuteInterval={15}
               />
               <TouchableOpacity
@@ -1243,8 +1148,8 @@ export default function HallMapScreen() {
                 value={endTime}
                 mode="datetime"
                 display="spinner"
-                onChange={handleEndTimeChange}
-                minimumDate={new Date(startTime.getTime() + 60 * 60 * 1000)} // Минимальное время - startTime + 1 час
+                onChange={handleMobileEndTimeChange}
+                minimumDate={new Date(startTime.getTime() + 60 * 60 * 1000)}
                 minuteInterval={15}
               />
               <TouchableOpacity
@@ -1257,7 +1162,6 @@ export default function HallMapScreen() {
           )}
         </View>
 
-        {/* Карта зала */}
         <View style={hallMapStyles.mapWrapper}>
           <View
             style={[
@@ -1324,7 +1228,6 @@ export default function HallMapScreen() {
           </View>
         </View>
 
-        {/* Легенда */}
         <View style={hallMapStyles.legend}>
           <View style={hallMapStyles.legendItem}>
             <View style={[hallMapStyles.legendColor, hallMapStyles.available]} />
@@ -1341,7 +1244,6 @@ export default function HallMapScreen() {
         </View>
       </View>
 
-      {/* Модальные окна */}
       <CartModal
         visible={cartModalVisible}
         onClose={handleCloseCart}
