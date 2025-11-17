@@ -463,6 +463,7 @@ export const hallMapStyles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     marginHorizontal: 8,
+    marginTop: 35,
   },
 
   // Стили для веб-пикеров

@@ -1322,7 +1322,7 @@ const styles = StyleSheet.create({
     gap: 20
   },
   gridMenuItemContainer: {
-    minWidth: 300,
+    minWidth: 280,
     width: '23%',
     backgroundColor: '#FFF8F0', // Кремовый фон ТОЛЬКО для веба
     borderRadius: 12,
@@ -1393,6 +1393,9 @@ const styles = StyleSheet.create({
   gridItemImage: {
     width: '100%',
     height: '100%',
+    resizeMode: 'contain', // Вместо 'cover'
+    // Центрируем изображение
+    alignSelf: 'center',
   },
   gridPlusButton: {
     position: 'absolute',
