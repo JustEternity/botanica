@@ -46,19 +46,53 @@ export default function RegisterModal({ visible, onClose, onRegister }: Register
     return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8)}`;
   };
 
+  // Функция для проверки валидности номера телефона
+  const isValidPhone = (phone: string): boolean => {
+    // Номер должен быть в формате +7XXXXXXXXXX (12 символов)
+    const phoneRegex = /^\+7\d{10}$/;
+    return phoneRegex.test(phone);
+  };
+
+  // Универсальная функция показа alert
+  const showAlert = (message: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(message);
+    } else {
+      Alert.alert('Ошибка', message);
+    }
+  };
+
+  // Универсальная функция показа успеха
+  const showSuccess = (message: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(message);
+    } else {
+      Alert.alert('Успех', message);
+    }
+  };
+
   const handleRegister = async () => {
+    // Проверка на пустые поля
     if (!name.trim() || !phone.trim() || !password || !confirmPassword) {
-      Alert.alert('Ошибка', 'Заполните все поля');
+      showAlert('Некорректные данные для регистрации');
       return;
     }
 
+    // Проверка формата телефона
+    if (!isValidPhone(phone)) {
+      showAlert('Некорректные данные для регистрации');
+      return;
+    }
+
+    // Проверка совпадения паролей
     if (password !== confirmPassword) {
-      Alert.alert('Ошибка', 'Пароли не совпадают');
+      showAlert('Некорректные данные для регистрации');
       return;
     }
 
-    if (password.length < 4) {
-      Alert.alert('Ошибка', 'Пароль должен содержать минимум 4 символа');
+    // Проверка длины пароля
+    if (password.length < 6) {
+      showAlert('Некорректные данные для регистрации');
       return;
     }
 
@@ -66,18 +100,17 @@ export default function RegisterModal({ visible, onClose, onRegister }: Register
     try {
       const success = await onRegister(name.trim(), phone, password);
       if (success) {
-        Alert.alert('Успех', 'Регистрация прошла успешно!');
+        showSuccess('Регистрация прошла успешно!');
         onClose();
         // Сброс полей
         setName('');
         setPhone('+7');
         setPassword('');
         setConfirmPassword('');
-      } else {
-        Alert.alert('Ошибка', 'Не удалось зарегистрироваться');
       }
+      // Ошибка уже обработана в onRegister, ничего не делаем
     } catch (error) {
-      Alert.alert('Ошибка', 'Произошла ошибка при регистрации');
+      // Ошибка уже обработана в onRegister, ничего не делаем
     } finally {
       setIsLoading(false);
     }
@@ -105,7 +138,7 @@ export default function RegisterModal({ visible, onClose, onRegister }: Register
           activeOpacity={1}
           onPress={handleClose}
         >
-          <ScrollView 
+          <ScrollView
             style={registerModalStyles.scrollView}
             contentContainerStyle={registerModalStyles.scrollContent}
             keyboardShouldPersistTaps="handled"
@@ -149,7 +182,7 @@ export default function RegisterModal({ visible, onClose, onRegister }: Register
                     style={registerModalStyles.input}
                     value={password}
                     onChangeText={setPassword}
-                    placeholder="Пароль"
+                    placeholder="Пароль (минимум 6 символов)"
                     placeholderTextColor="#999"
                     secureTextEntry
                     editable={!isLoading}
