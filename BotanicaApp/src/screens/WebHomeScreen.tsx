@@ -7,9 +7,9 @@ export function WebHeader({ navigation, currentScreen }: { navigation: any, curr
       <View style={styles.headerContent}>
         <Text style={styles.title}>BOTANICA</Text>
         <Text style={styles.subtitle}>КАФЕ • КАЛЬЯННАЯ</Text>
-        
+
         <View style={styles.nav}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.navButton,
               currentScreen === 'Home' && styles.activeNavButton
@@ -21,8 +21,8 @@ export function WebHeader({ navigation, currentScreen }: { navigation: any, curr
               currentScreen === 'Home' && styles.activeNavText
             ]}>ГЛАВНАЯ</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[
               styles.navButton,
               currentScreen === 'Menu' && styles.activeNavButton
@@ -34,8 +34,8 @@ export function WebHeader({ navigation, currentScreen }: { navigation: any, curr
               currentScreen === 'Menu' && styles.activeNavText
             ]}>МЕНЮ</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[
               styles.navButton,
               currentScreen === 'HallMap' && styles.activeNavButton
@@ -47,8 +47,8 @@ export function WebHeader({ navigation, currentScreen }: { navigation: any, curr
               currentScreen === 'HallMap' && styles.activeNavText
             ]}>БРОНЬ СТОЛИКА</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[
               styles.navButton,
               currentScreen === 'Profile' && styles.activeNavButton
@@ -61,7 +61,7 @@ export function WebHeader({ navigation, currentScreen }: { navigation: any, curr
             ]}>ПРОФИЛЬ</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.navButton,
               currentScreen === 'About' && styles.activeNavButton
@@ -91,17 +91,17 @@ export default function WebHomeScreen({ navigation }: any) {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <WebHeader navigation={navigation} currentScreen="Home" />
-      
+
       {/* Герой секция - компактная но с крупным текстом */}
       <View style={styles.heroSection}>
         <View style={styles.heroContent}>
           <Text style={styles.heroTitle}>BOTANICA</Text>
           <Text style={styles.heroSubtitle}>КАЛЬЯННАЯ В КИРОВЕ</Text>
           <Text style={styles.heroDescription}>
-            Уютная кальянная в самом сердце Кирова, где современный комфорт 
+            Уютная кальянная в самом сердце Кирова, где современный комфорт
             встречается с атмосферой расслабления и качественного отдыха
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.ctaButton}
             onPress={() => navigation.navigate('Menu')}
           >
@@ -120,7 +120,7 @@ export default function WebHomeScreen({ navigation }: any) {
               Широкий выбор табаков и вкусов
             </Text>
           </View>
-          
+
           <View style={styles.featureCard}>
             <Text style={styles.featureIcon}>🍹</Text>
             <Text style={styles.featureTitle}>НАПИТКИ</Text>
@@ -128,7 +128,7 @@ export default function WebHomeScreen({ navigation }: any) {
               Освежающие коктейли и чаи
             </Text>
           </View>
-          
+
           <View style={styles.featureCard}>
             <Text style={styles.featureIcon}>🎵</Text>
             <Text style={styles.featureTitle}>МУЗЫКА</Text>
@@ -136,7 +136,7 @@ export default function WebHomeScreen({ navigation }: any) {
               Приятная атмосферная музыка
             </Text>
           </View>
-          
+
           <View style={styles.featureCard}>
             <Text style={styles.featureIcon}>🎮</Text>
             <Text style={styles.featureTitle}>РАЗВЛЕЧЕНИЯ</Text>
@@ -158,7 +158,7 @@ export default function WebHomeScreen({ navigation }: any) {
               На бар и кальян в будни с 11:00 до 17:00
             </Text>
           </View>
-          
+
           <View style={styles.discountCard}>
             <Text style={styles.discountIcon}>🎂</Text>
             <Text style={styles.discountTitle}>СКИДКА В ДЕНЬ РОЖДЕНИЯ 10%</Text>
@@ -173,7 +173,7 @@ export default function WebHomeScreen({ navigation }: any) {
       <View style={styles.menuPreviewSection}>
         <Text style={styles.sectionTitle}>НАШЕ МЕНЮ</Text>
         <View style={styles.menuGrid}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.menuCategory}
             onPress={() => navigation.navigate('Menu')}
           >
@@ -181,8 +181,8 @@ export default function WebHomeScreen({ navigation }: any) {
             <Text style={styles.menuCategoryTitle}>КАЛЬЯНЫ</Text>
             <Text style={styles.menuCategoryPrice}>от 1300₽</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.menuCategory}
             onPress={() => navigation.navigate('Menu')}
           >
@@ -190,8 +190,8 @@ export default function WebHomeScreen({ navigation }: any) {
             <Text style={styles.menuCategoryTitle}>КОФЕ</Text>
             <Text style={styles.menuCategoryPrice}>от 160₽</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.menuCategory}
             onPress={() => navigation.navigate('Menu')}
           >
@@ -199,8 +199,8 @@ export default function WebHomeScreen({ navigation }: any) {
             <Text style={styles.menuCategoryTitle}>ЧАИ</Text>
             <Text style={styles.menuCategoryPrice}>от 350₽</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.menuCategory}
             onPress={() => navigation.navigate('Menu')}
           >
@@ -218,7 +218,7 @@ export default function WebHomeScreen({ navigation }: any) {
           <Text style={styles.bookingSubtitle}>
             Забронируйте столик онлайн и обеспечьте себе комфортный вечер
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.bookingButton}
             onPress={() => navigation.navigate('HallMap')}
           >
@@ -238,7 +238,7 @@ export default function WebHomeScreen({ navigation }: any) {
               <Text style={styles.contactText}>+7 (912) 826-72-00</Text>
             </View>
           </TouchableOpacity>
-          
+
           <View style={styles.contactItem}>
             <Text style={styles.contactIcon}>📍</Text>
             <View>
@@ -246,7 +246,7 @@ export default function WebHomeScreen({ navigation }: any) {
               <Text style={styles.contactText}>г. Киров, ул. Всесвятская 72, 2 этаж</Text>
             </View>
           </View>
-          
+
           <View style={styles.contactItem}>
             <Text style={styles.contactIcon}>🕒</Text>
             <View>
@@ -255,7 +255,7 @@ export default function WebHomeScreen({ navigation }: any) {
               <Text style={styles.contactText}>Пт-Вс: до 03:00</Text>
             </View>
           </View>
-          
+
           <TouchableOpacity style={styles.contactItem} onPress={openVK}>
             <Text style={styles.contactIcon}>👥</Text>
             <View>
@@ -306,7 +306,10 @@ const styles = StyleSheet.create({
   },
   nav: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 8, // Минимальное расстояние между кнопками
+    maxWidth: '100%',
   },
   navButton: {
     paddingVertical: 6,
