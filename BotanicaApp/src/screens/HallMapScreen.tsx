@@ -670,7 +670,7 @@ export default function HallMapScreen() {
     const clampedScale = Math.max(0.5, Math.min(3, scale));
     const leftBound = CONTENT_WIDTH * 0.3;
     const rightBound = CONTENT_WIDTH * 0.05;
-    const topBound = CONTENT_HEIGHT * 0.05;
+    const topBound = CONTENT_HEIGHT * 0.2;
     const bottomBound = CONTENT_HEIGHT * 0.3;
 
     const clampedTranslateX = Math.max(-leftBound, Math.min(rightBound, translateX));
