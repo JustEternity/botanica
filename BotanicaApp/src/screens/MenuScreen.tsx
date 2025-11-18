@@ -1,3 +1,4 @@
+// src/screens/MenuScreen.tsx
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
@@ -34,6 +35,7 @@ import EditMenuItemModal from '../components/EditMenuItemModal';
 import FloatingCartButton from '../components/FloatingCartButton';
 import CartModal from '../components/CartModal';
 import { incrementGlobalMenuVersion, incrementImageVersion } from '../utils/imageCache';
+import { useMenu } from '../contexts/MenuContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -151,44 +153,17 @@ const MenuItemComponent: React.FC<{
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // Для веба используем ref для сохранения состояния между перерисовками
-  const imageStateRef = useRef({
-    loaded: false,
-    error: false,
-    url: ''
-  });
-
-  // Разные размеры изображения для мобильного и grid режима
-  const imageSize = isGridLayout ? 400 : 160;
-
-  // Универсальная функция для получения URL изображения
-  const getImageUrl = useCallback((url: string) => {
-    return getOptimizedImageUrl(url, imageSize, imageSize);
-  }, [imageSize]);
-
-  const optimizedImageUrl = getImageUrl(item.image);
+  // РАЗНЫЕ РАЗМЕРЫ ДЛЯ ВЕБА И МОБИЛЬНЫХ
+  const imageSize = Platform.OS === 'web' && isGridLayout ? 400 : 160;
+  const optimizedImageUrl = getOptimizedImageUrl(item.image, imageSize, imageSize);
 
   const handleImageLoad = useCallback(() => {
     setImageLoaded(true);
-    setImageError(false);
-    // Сохраняем состояние для веба
-    if (Platform.OS === 'web') {
-      imageStateRef.current.loaded = true;
-      imageStateRef.current.error = false;
-      imageStateRef.current.url = item.image;
-    }
-  }, [item.image]);
+  }, []);
 
   const handleImageError = useCallback(() => {
     setImageError(true);
-    setImageLoaded(true);
-    // Сохраняем состояние для веба
-    if (Platform.OS === 'web') {
-      imageStateRef.current.error = true;
-      imageStateRef.current.loaded = true;
-      imageStateRef.current.url = item.image;
-    }
-  }, [item.image]);
+  }, []);
 
   const handlePlusPress = useCallback((e: any) => {
     e.stopPropagation();
@@ -223,12 +198,10 @@ const MenuItemComponent: React.FC<{
     ? [menuStyles.menuItem, styles.gridMenuItem]
     : menuStyles.menuItem;
 
-  // Для контейнера изображения используем разные стили
   const imageContainerStyle = isGridLayout
     ? [menuStyles.itemImageContainer, styles.gridImageContainer]
     : menuStyles.itemImageContainer;
 
-  // Для самого изображения тоже разные стили
   const imageStyle = isGridLayout
     ? [menuStyles.itemImage, styles.gridItemImage]
     : menuStyles.itemImage;
@@ -237,7 +210,6 @@ const MenuItemComponent: React.FC<{
     ? [menuStyles.itemContent, styles.gridItemContent]
     : menuStyles.itemContent;
 
-  // Добавляем условные стили для текста в grid режиме
   const nameStyle = isGridLayout
     ? [menuStyles.itemName, styles.gridItemName]
     : menuStyles.itemName;
@@ -250,28 +222,6 @@ const MenuItemComponent: React.FC<{
     ? [menuStyles.itemDescription, styles.gridItemDescription]
     : menuStyles.itemDescription;
 
-  // Восстанавливаем состояние изображения при монтировании (только для веба)
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      // Если это то же изображение, что было загружено ранее, восстанавливаем состояние
-      if (imageStateRef.current.url === item.image && imageStateRef.current.loaded) {
-        setImageLoaded(true);
-        setImageError(imageStateRef.current.error);
-      } else {
-        // Сбрасываем состояние только для нового изображения
-        setImageLoaded(false);
-        setImageError(false);
-        imageStateRef.current.loaded = false;
-        imageStateRef.current.error = false;
-        imageStateRef.current.url = item.image;
-      }
-    } else {
-      // Для мобильных устройств всегда сбрасываем состояние
-      setImageLoaded(false);
-      setImageError(false);
-    }
-  }, [item.image, item.id]);
-
   return (
     <View style={containerStyle}>
       <TouchableOpacity
@@ -280,7 +230,6 @@ const MenuItemComponent: React.FC<{
         onLongPress={handleLongPress}
         activeOpacity={0.7}
         delayLongPress={500}
-        // Добавляем обработчик контекстного меню для веба
         {...(Platform.OS === 'web' ? {
           onContextMenu: handleContextMenu
         } : {})}
@@ -325,8 +274,6 @@ const MenuItemComponent: React.FC<{
               resizeMode="cover"
               onLoad={handleImageLoad}
               onError={handleImageError}
-              // Используем разные ключи для веба и мобильных устройств
-              key={Platform.OS === 'web' ? `web-${item.id}` : `mobile-${item.id}-${Date.now()}`}
             />
           )}
         </View>
@@ -382,8 +329,7 @@ const MenuItemComponent: React.FC<{
 }, (prevProps, nextProps) => {
   return prevProps.item.id === nextProps.item.id &&
          prevProps.item.is_available === nextProps.item.is_available &&
-         prevProps.isGridLayout === nextProps.isGridLayout &&
-         prevProps.item.image === nextProps.item.image;
+         prevProps.isGridLayout === nextProps.isGridLayout;
 });
 
 // Основной компонент экрана меню
@@ -391,19 +337,14 @@ export default function MenuScreen() {
   const { user } = useAuth();
   const { addMenuItem } = useCart();
   const { refreshTables } = useTable();
-
-  // Используем useWindowDimensions для получения актуальных размеров
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-
+  const { menuData, loadMenuData, refreshing, loading, error, clearError } = useMenu();
+  
   const isAdmin = user?.role === 'admin';
-
-  // Определяем, использовать ли grid layout для веб-версии
+  const { width: windowWidth } = useWindowDimensions();
   const isWebWide = Platform.OS === 'web' && windowWidth > 768;
 
   // Refs для актуального значения isAdmin
   const isAdminRef = useRef(isAdmin);
-
-  // Анимированные значения для Pull-to-Add
   const pullProgressRef = useRef(new Animated.Value(0)).current;
 
   // Обновляем ref при изменении isAdmin
@@ -423,10 +364,6 @@ export default function MenuScreen() {
   // Основные состояния
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [isScrolling, setIsScrolling] = useState(false);
-  const [menuData, setMenuData] = useState<MenuSection[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [loadingPhrase, setLoadingPhrase] = useState(LOADING_PHRASES[0]);
   const [isDataReady, setIsDataReady] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -435,18 +372,16 @@ export default function MenuScreen() {
   const [selectedContextItem, setSelectedContextItem] = useState<MenuItem | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [cartModalVisible, setCartModalVisible] = useState(false);
-
-  // Добавляем состояние для веб-контекстного меню
   const [webContextMenuVisible, setWebContextMenuVisible] = useState(false);
+  const [loadingPhrase, setLoadingPhrase] = useState(LOADING_PHRASES[0]);
 
   const categoriesRef = useRef<FlatList>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const categoryPositions = useRef<{[key: string]: number}>({});
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const loadingPhraseRef = useRef<NodeJS.Timeout | null>(null);
-
+  
   // Refs для Pull-to-Add
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isAtTopRef = useRef(true);
@@ -460,27 +395,18 @@ export default function MenuScreen() {
     return Math.min(pullState.pullDistance / PULL_THRESHOLD, 1);
   }, [pullState.pullDistance]);
 
-  const loadMenuData = useCallback(async () => {
+  const loadMenuDataHandler = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
-
-      const includeHidden = isAdmin;
-      const data = await ApiService.getMenu(includeHidden);
-      setMenuData(data);
-
-      if (data.length > 0) {
-        setSelectedCategory(data[0].id);
+      await loadMenuData(isAdmin);
+      
+      if (menuData.length > 0) {
+        setSelectedCategory(menuData[0].id);
         setIsDataReady(true);
       }
-
     } catch (err) {
-      const errorMessage = 'Не удалось загрузить меню. Проверьте подключение к интернету.';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
+      console.error('Error loading menu:', err);
     }
-  }, [isAdmin]);
+  }, [isAdmin, loadMenuData, menuData.length]);
 
   const clearHoldTimer = useCallback(() => {
     if (holdTimerRef.current) {
@@ -489,17 +415,15 @@ export default function MenuScreen() {
     }
     isHoldActiveRef.current = false;
     holdProgressRef.current = 0;
-
+    
     setPullState(prev => ({
-      ...prev,
-      isHoldActive: false,
+      ...prev, 
+      isHoldActive: false, 
       holdProgress: 0
     }));
   }, []);
-
+  
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-
     if (isAdminRef.current) {
       clearHoldTimer();
       isHoldActiveRef.current = false;
@@ -514,16 +438,14 @@ export default function MenuScreen() {
       });
     }
 
-    loadMenuData().finally(() => {
-      setRefreshing(false);
-    });
-  }, [loadMenuData, clearHoldTimer]);
+    loadMenuDataHandler();
+  }, [loadMenuDataHandler, clearHoldTimer]);
 
   const handlePullRelease = useCallback(() => {
     if (!isAdminRef.current) return;
-
+    
     const currentHoldProgress = holdProgressRef.current;
-
+    
     clearHoldTimer();
 
     Animated.timing(pullProgressRef, {
@@ -541,7 +463,7 @@ export default function MenuScreen() {
       });
       isHoldActiveRef.current = false;
       pullDistanceRef.current = 0;
-
+      
       if (currentHoldProgress >= HOLD_PROGRESS_THRESHOLD && currentHoldProgress < 1) {
         onRefresh();
       }
@@ -550,9 +472,9 @@ export default function MenuScreen() {
 
   const completePullToAdd = useCallback(() => {
     if (!isAdminRef.current) return;
-
+    
     setPullState(prev => ({ ...prev, isAdding: true }));
-
+    
     Animated.timing(pullProgressRef, {
       toValue: 0,
       duration: 300,
@@ -561,7 +483,7 @@ export default function MenuScreen() {
     }).start(() => {
       setEditingItem(null);
       setEditModalVisible(true);
-
+      
       setPullState({
         isPulling: false,
         pullDistance: 0,
@@ -580,15 +502,15 @@ export default function MenuScreen() {
     isHoldActiveRef.current = true;
     setPullState(prev => ({ ...prev, isHoldActive: true, holdProgress: 0 }));
     holdProgressRef.current = 0;
-
+    
     const startTime = Date.now();
-
+    
     const updateProgress = () => {
       if (!isAtTopRef.current || !isHoldActiveRef.current || pullDistanceRef.current < PULL_THRESHOLD) {
         clearHoldTimer();
-        setPullState(prev => ({
-          ...prev,
-          isHoldActive: false,
+        setPullState(prev => ({ 
+          ...prev, 
+          isHoldActive: false, 
           holdProgress: 0
         }));
         return;
@@ -596,7 +518,7 @@ export default function MenuScreen() {
 
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / HOLD_DURATION, 1);
-
+      
       setPullState(prev => ({ ...prev, holdProgress: progress }));
       holdProgressRef.current = progress;
 
@@ -619,14 +541,14 @@ export default function MenuScreen() {
       },
       onPanResponderMove: (_, gestureState) => {
         const currentIsAdmin = isAdminRef.current;
-
+        
         if (!currentIsAdmin || !isAtTopRef.current || pullState.isAdding) {
           return;
         }
 
         const pullDistance = Math.min(gestureState.dy, MAX_PULL_DISTANCE);
         pullDistanceRef.current = pullDistance;
-
+        
         setPullState(prev => ({
           ...prev,
           isPulling: true,
@@ -661,14 +583,14 @@ export default function MenuScreen() {
   ).current;
 
   useEffect(() => {
-    loadMenuData();
-  }, [loadMenuData]);
+    loadMenuDataHandler();
+  }, [loadMenuDataHandler]);
 
   const TOP_BUFFER = 10;
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const scrollY = event.nativeEvent.contentOffset.y;
-
+    
     isAtTopRef.current = scrollY <= TOP_BUFFER;
     lastScrollYRef.current = scrollY;
 
@@ -733,7 +655,7 @@ export default function MenuScreen() {
 
   const handleScrollBeginDrag = useCallback(() => {
     setIsScrolling(true);
-
+    
     if (isAdminRef.current && isHoldActiveRef.current) {
       handlePullRelease();
     }
@@ -743,7 +665,7 @@ export default function MenuScreen() {
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
     }
-
+    
     scrollTimeoutRef.current = setTimeout(() => {
       setIsScrolling(false);
     }, 150);
@@ -787,11 +709,10 @@ export default function MenuScreen() {
     refreshTables();
   }, [refreshTables]);
 
-  // Обновленный обработчик long press для всех платформ
   const handleLongPress = useCallback((item: MenuItem) => {
     if (isAdmin) {
       setSelectedContextItem({...item});
-
+      
       if (Platform.OS === 'ios') {
         // iOS контекстное меню
       } else if (Platform.OS === 'android') {
@@ -802,7 +723,6 @@ export default function MenuScreen() {
     }
   }, [isAdmin]);
 
-  // Обновленный обработчик действий контекстного меню
   const handleContextMenuAction = useCallback(async (action: ContextMenuAction, item: MenuItem) => {
     // Закрываем все меню
     if (Platform.OS === 'ios') {
@@ -817,10 +737,9 @@ export default function MenuScreen() {
       case 'delete':
         try {
           await ApiService.deleteMenuItem(item.id, item.cloudinary_public_id);
-          // Инвалидируем кеш при удалении
           incrementGlobalMenuVersion();
           Alert.alert('Успех', 'Товар успешно удален');
-          loadMenuData();
+          await loadMenuData(isAdmin);
         } catch (error) {
           Alert.alert('Ошибка', 'Не удалось удалить товар');
         }
@@ -830,10 +749,9 @@ export default function MenuScreen() {
         try {
           const newVisibility = !item.is_available;
           await ApiService.toggleMenuItemVisibility(item.id, newVisibility);
-          // Инвалидируем кеш при изменении видимости
           incrementGlobalMenuVersion();
           Alert.alert('Успех', `Товар ${newVisibility ? 'опубликован' : 'скрыт'}`);
-          loadMenuData();
+          await loadMenuData(isAdmin);
         } catch (error) {
           Alert.alert('Ошибка', 'Не удалось изменить видимость товара');
         }
@@ -849,25 +767,20 @@ export default function MenuScreen() {
     }
 
     setSelectedContextItem(null);
-  }, [loadMenuData]);
+  }, [loadMenuData, isAdmin]);
 
   const handleSaveItem = useCallback(async (itemData: MenuItem) => {
     try {
-      // Увеличиваем глобальную версию меню для инвалидации кеша на всех устройствах
       incrementGlobalMenuVersion();
-
-      // Увеличиваем версию конкретного изображения
       if (itemData.image) {
         incrementImageVersion(itemData.image);
       }
-
-      // Принудительно обновляем данные меню
-      await loadMenuData();
+      await loadMenuData(isAdmin);
     } catch (error) {
       console.error('Error saving item:', error);
       Alert.alert('Ошибка', 'Не удалось сохранить товар');
     }
-  }, [loadMenuData]);
+  }, [loadMenuData, isAdmin]);
 
   const handleCloseAndroidMenu = useCallback(() => {
     setContextMenuVisible(false);
@@ -878,7 +791,6 @@ export default function MenuScreen() {
     setSelectedContextItem(null);
   }, []);
 
-  // Добавляем обработчик закрытия веб-меню
   const handleCloseWebContextMenu = useCallback(() => {
     setWebContextMenuVisible(false);
     setSelectedContextItem(null);
@@ -897,6 +809,11 @@ export default function MenuScreen() {
     setCartModalVisible(false);
   }, []);
 
+  const handleRetry = useCallback(() => {
+    clearError();
+    loadMenuDataHandler();
+  }, [clearError, loadMenuDataHandler]);
+
   const categories: MenuCategory[] = menuData.map(section => ({
     id: section.id,
     title: section.title,
@@ -913,7 +830,7 @@ export default function MenuScreen() {
     setIsScrolling(true);
 
     const targetPosition = categoryPositions.current[categoryId];
-
+    
     if (scrollViewRef.current && targetPosition !== undefined) {
       scrollViewRef.current.scrollTo({
         y: Math.max(0, targetPosition - 20),
@@ -957,9 +874,8 @@ export default function MenuScreen() {
     </TouchableOpacity>
   ), [selectedCategory, scrollToCategory]);
 
-  // Обновленный renderMenuSection с поддержкой grid layout
   const renderMenuSection = useCallback((category: MenuSection) => (
-    <View
+    <View 
       key={category.id}
       onLayout={(event) => {
         const { y } = event.nativeEvent.layout;
@@ -970,12 +886,11 @@ export default function MenuScreen() {
         <Text style={menuStyles.sectionTitle}>{category.title}</Text>
       </View>
 
-      {/* Контейнер для grid layout */}
       <View style={isWebWide ? styles.gridContainer : null}>
         {category.data.map((item) => (
-          <MenuItemComponent
-            key={item.id}
-            item={item}
+          <MenuItemComponent 
+            key={item.id} 
+            item={item} 
             onItemPress={openModalWithItem}
             onPlusPress={openModalWithPlus}
             onLongPress={handleLongPress}
@@ -991,7 +906,7 @@ export default function MenuScreen() {
     if (loading) {
       let currentIndex = 0;
       setLoadingPhrase(LOADING_PHRASES[0]);
-
+      
       loadingPhraseRef.current = setInterval(() => {
         currentIndex = (currentIndex + 1) % LOADING_PHRASES.length;
         setLoadingPhrase(LOADING_PHRASES[currentIndex]);
@@ -1035,9 +950,9 @@ export default function MenuScreen() {
         <View style={styles.errorContent}>
           <Text style={styles.errorEmoji}>😔</Text>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
+          <TouchableOpacity 
             style={styles.retryButton}
-            onPress={loadMenuData}
+            onPress={handleRetry}
           >
             <Text style={styles.retryButtonText}>Попробовать снова</Text>
           </TouchableOpacity>
@@ -1096,7 +1011,7 @@ export default function MenuScreen() {
         {...(isAdmin ? panResponder.panHandlers : {})}
       >
         {menuData.map(renderMenuSection)}
-
+        
         <View style={menuStyles.bottomSpace} />
       </ScrollView>
 
@@ -1211,7 +1126,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#4CAF50', // ЗЕЛЕНЫЙ для мобильной версии
+    backgroundColor: '#4CAF50',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -1309,7 +1224,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  // Стили для адаптивного grid layout (ТОЛЬКО для веб-версии)
+  // Стили для адаптивного grid layout
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1324,7 +1239,7 @@ const styles = StyleSheet.create({
   gridMenuItemContainer: {
     minWidth: 280,
     width: '23%',
-    backgroundColor: '#FFF8F0', // Кремовый фон ТОЛЬКО для веба
+    backgroundColor: '#FFF8F0',
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1334,7 +1249,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     height: 380,
     borderWidth: 1,
-    borderColor: '#F5E6D3', // Светло-бежевая граница ТОЛЬКО для веба
+    borderColor: '#F5E6D3',
   },
   gridMenuItem: {
     flexDirection: 'column',
@@ -1345,7 +1260,7 @@ const styles = StyleSheet.create({
     padding: 16,
     justifyContent: 'space-between',
     width: '100%',
-    backgroundColor: '#FFF8F0', // Кремовый фон контента ТОЛЬКО для веба
+    backgroundColor: '#FFF8F0',
   },
   gridItemHeader: {
     width: '100%',
@@ -1360,7 +1275,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     marginRight: 8,
     fontWeight: '600',
-    color: '#5D4037', // Темно-коричневый ТОЛЬКО для веба
+    color: '#5D4037',
     fontSize: 16,
     alignSelf: 'flex-start',
     textAlignVertical: 'top',
@@ -1369,7 +1284,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontWeight: 'bold',
     flexShrink: 0,
-    color: '#4CAF50', // Зеленый цвет цены
+    color: '#4CAF50',
     fontSize: 16,
     alignSelf: 'flex-start',
     textAlignVertical: 'top',
@@ -1377,7 +1292,7 @@ const styles = StyleSheet.create({
   gridItemDescription: {
     textAlign: 'left',
     marginTop: 8,
-    color: '#8D6E63', // Светло-коричневый ТОЛЬКО для веба
+    color: '#8D6E63',
     lineHeight: 18,
     fontSize: 14,
     alignSelf: 'stretch',
@@ -1388,13 +1303,12 @@ const styles = StyleSheet.create({
     height: 200,
     position: 'relative',
     overflow: 'hidden',
-    backgroundColor: '#FFF8F0', // Кремовый фон для изображения ТОЛЬКО для веба
+    backgroundColor: '#FFF8F0',
   },
   gridItemImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'contain', // Вместо 'cover'
-    // Центрируем изображение
+    resizeMode: 'contain',
     alignSelf: 'center',
   },
   gridPlusButton: {
@@ -1404,7 +1318,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#8D6E63', // Коричневая кнопка ТОЛЬКО для веба
+    backgroundColor: '#8D6E63',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

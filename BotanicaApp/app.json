@@ -9,8 +9,8 @@
       ],
       "expo-router"
     ],
-    "name": "BotanicaApp",
-    "slug": "BotanicaApp",
+    "name": "Botanica",
+    "slug": "botanica",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,25 +18,47 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0a1f0a"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.botanica.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0a1f0a"
       },
       "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA"
       ],
-      "package": "com.anonymous.BotanicaApp"
+      "package": "com.botanica.app"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "Botanica - Кафе Кальянная",
+      "shortName": "Botanica",
+      "lang": "ru",
+      "scope": "/",
+      "backgroundColor": "#0a1f0a",
+      "themeColor": "#0a1f0a",
+      "display": "standalone",
+      "startUrl": "/",
+      "orientation": "portrait",
+      "bundler": "metro"
     },
-    "entryPoint": "App.tsx"
+    "entryPoint": "App.tsx",
+    "scheme": "botanica",
+    "extra": {
+      "API_BASE_URL": "http://45.153.189.245:3001/api",
+      "eas": {
+        "projectId": "your-project-id-here"
+      }
+    }
   }
 }

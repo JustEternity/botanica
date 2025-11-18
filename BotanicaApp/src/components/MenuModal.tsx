@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -27,6 +27,161 @@ interface MenuModalProps {
   onAddToOrder: (item: MenuItem, quantity: number) => void;
 }
 
+// ВЫНОСИМ КОМПОНЕНТ ИЗОБРАЖЕНИЯ В ОТДЕЛЬНЫЙ МЕМОИЗИРОВАННЫЙ КОМПОНЕНТ
+const MenuModalImage = React.memo(({ 
+  item, 
+  onRetry 
+}: { 
+  item: MenuItem; 
+  onRetry: () => void;
+}) => {
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+  
+  // КЕШИРУЕМ СОСТОЯНИЕ ИЗОБРАЖЕНИЯ В REF
+  const imageStateRef = useRef<{
+    loaded: boolean;
+    error: boolean;
+    dimensions: { width: number; height: number };
+  } | null>(null);
+
+  const highQualityImage = useMemo(() => getOptimizedImageUrl(item.image), [item.image]);
+
+  useEffect(() => {
+    if (item) {
+      // ЕСЛИ СОСТОЯНИЕ УЖЕ ЗАКЕШИРОВАНО, ВОССТАНАВЛИВАЕМ ЕГО
+      if (imageStateRef.current) {
+        setImageError(imageStateRef.current.error);
+        setImageLoading(!imageStateRef.current.loaded);
+        setImageDimensions(imageStateRef.current.dimensions);
+      } else {
+        setImageError(false);
+        setImageLoading(true);
+        
+        Image.getSize(
+          highQualityImage,
+          (width, height) => {
+            const dimensions = { width, height };
+            setImageDimensions(dimensions);
+            imageStateRef.current = {
+              loaded: false,
+              error: false,
+              dimensions
+            };
+          },
+          (error) => {
+            console.log('❌ Ошибка получения размеров изображения:', error);
+            const dimensions = { width: 300, height: 200 };
+            setImageDimensions(dimensions);
+            imageStateRef.current = {
+              loaded: false,
+              error: false,
+              dimensions
+            };
+          }
+        );
+      }
+    }
+  }, [item, highQualityImage]);
+
+  const handleImageLoad = useCallback(() => {
+    setImageLoading(false);
+    setImageError(false);
+    if (imageStateRef.current) {
+      imageStateRef.current.loaded = true;
+      imageStateRef.current.error = false;
+    }
+  }, []);
+
+  const handleImageError = useCallback(() => {
+    setImageError(true);
+    setImageLoading(false);
+    if (imageStateRef.current) {
+      imageStateRef.current.loaded = true;
+      imageStateRef.current.error = true;
+    }
+  }, []);
+
+  const handleRetryLoad = useCallback(() => {
+    setImageError(false);
+    setImageLoading(true);
+    imageStateRef.current = null; // СБРАСЫВАЕМ КЕШ ДЛЯ ПОВТОРНОЙ ЗАГРУЗКИ
+    onRetry();
+  }, [onRetry]);
+
+  // ВЫЧИСЛЯЕМ СТИЛЬ ИЗОБРАЖЕНИЯ
+  const imageStyle = useMemo((): ImageStyle => {
+    const maxContainerWidth = Platform.OS === 'web' ? 600 : SCREEN_WIDTH;
+    const maxWidth = maxContainerWidth - 40;
+    const maxHeight = SCREEN_HEIGHT * 0.4;
+
+    if (imageDimensions.width > 0 && imageDimensions.height > 0) {
+      const ratio = imageDimensions.width / imageDimensions.height;
+      let width = maxWidth;
+      let height = maxWidth / ratio;
+
+      if (height > maxHeight) {
+        height = maxHeight;
+        width = maxHeight * ratio;
+      }
+
+      if (width > maxWidth) {
+        width = maxWidth;
+        height = maxWidth / ratio;
+      }
+
+      return { width, height };
+    }
+
+    return { width: maxWidth, height: 200 };
+  }, [imageDimensions]);
+
+  return (
+    <View style={styles.imageContainer}>
+      {imageLoading && (
+        <View style={[styles.imagePlaceholder, { width: imageStyle.width, height: imageStyle.height }]}>
+          <ActivityIndicator size="large" color={Platform.OS === 'web' ? '#8D6E63' : '#2E7D32'} />
+        </View>
+      )}
+
+      <Image
+        source={{ uri: highQualityImage }}
+        style={[
+          styles.image,
+          imageStyle,
+          imageLoading && styles.imageHidden
+        ]}
+        resizeMode="contain"
+        onLoad={handleImageLoad}
+        onError={handleImageError}
+      />
+
+      {imageError && (
+        <TouchableOpacity
+          style={[styles.imagePlaceholder, styles.imageError, { width: imageStyle.width, height: imageStyle.height }]}
+          onPress={handleRetryLoad}
+          activeOpacity={0.7}
+        >
+          <Text style={[
+            styles.modalErrorText,
+            Platform.OS === 'web' && styles.webModalErrorText
+          ]}>🖼️</Text>
+          <Text style={[
+            styles.modalErrorText,
+            Platform.OS === 'web' && styles.webModalErrorText
+          ]}>Ошибка загрузки изображения</Text>
+          <Text style={[
+            styles.retryHint,
+            Platform.OS === 'web' && styles.webRetryHint
+          ]}>Нажмите для повторной загрузки</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+});
+
+// ОСНОВНОЙ КОМПОНЕНТ МОДАЛКИ
 export default function MenuModal({
   visible,
   item,
@@ -35,34 +190,14 @@ export default function MenuModal({
   onAddToOrder,
 }: MenuModalProps) {
   const [quantity, setQuantity] = useState(initialQuantity);
-  const [imageError, setImageError] = useState(false);
-  const [imageLoading, setImageLoading] = useState(true);
-  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
-
+  
+  // ИСПОЛЬЗУЕМ REF ДЛЯ ПРЕДОТВРАЩЕНИЯ СБРОСА СОСТОЯНИЯ ПРИ ПЕРЕРЕНДЕРАХ
+  const itemRef = useRef<MenuItem | null>(null);
+  
   useEffect(() => {
     if (visible && item) {
       setQuantity(initialQuantity);
-      setImageError(false);
-      setImageLoading(true);
-
-      const highQualityImage = getOptimizedImageUrl(item.image);
-      Image.getSize(
-        highQualityImage,
-        (width, height) => {
-          setImageDimensions({ width, height });
-          Image.prefetch(highQualityImage)
-            .then(() => {
-              console.log('✅ Предзагрузка изображения завершена');
-            })
-            .catch(error => {
-              console.log('❌ Ошибка предзагрузки:', error);
-            });
-        },
-        (error) => {
-          console.log('❌ Ошибка получения размеров изображения:', error);
-          setImageDimensions({ width: 300, height: 200 });
-        }
-      );
+      itemRef.current = item;
     }
   }, [visible, item, initialQuantity]);
 
@@ -89,55 +224,15 @@ export default function MenuModal({
     }
   };
 
-  const handleRetryLoad = useCallback(() => {
-    setImageError(false);
-    setImageLoading(true);
-  }, []);
-
-  const handleImageLoad = useCallback(() => {
-    setImageLoading(false);
-    setImageError(false);
-  }, []);
-
-  const handleImageError = useCallback(() => {
-    setImageError(true);
-    setImageLoading(false);
+  // ЗАГЛУШКА ДЛЯ ПОВТОРНОЙ ЗАГРУЗКИ ИЗОБРАЖЕНИЯ
+  const handleRetryImage = useCallback(() => {
+    // Принудительно обновляем состояние, если нужно
   }, []);
 
   if (!item) return null;
 
-  const highQualityImage = getOptimizedImageUrl(item.image);
   const totalPrice = item.price * quantity;
   const displayPrice = quantity > 0 ? totalPrice : item.price;
-
-  // Вычисляем пропорции изображения для корректного отображения
-  const getImageStyle = (): ImageStyle => {
-    const maxContainerWidth = Platform.OS === 'web' ? 600 : SCREEN_WIDTH;
-    const maxWidth = maxContainerWidth - 40;
-    const maxHeight = SCREEN_HEIGHT * 0.4;
-
-    if (imageDimensions.width > 0 && imageDimensions.height > 0) {
-      const ratio = imageDimensions.width / imageDimensions.height;
-      let width = maxWidth;
-      let height = maxWidth / ratio;
-
-      if (height > maxHeight) {
-        height = maxHeight;
-        width = maxHeight * ratio;
-      }
-
-      if (width > maxWidth) {
-        width = maxWidth;
-        height = maxWidth / ratio;
-      }
-
-      return { width, height };
-    }
-
-    return { width: maxWidth, height: 200 };
-  };
-
-  const imageStyle = getImageStyle();
 
   return (
     <Modal
@@ -149,34 +244,34 @@ export default function MenuModal({
       <TouchableOpacity
         style={[
           styles.overlay,
-          Platform.OS === 'web' && styles.webOverlay as ViewStyle
+          Platform.OS === 'web' && styles.webOverlay
         ]}
         activeOpacity={1}
         onPress={handleOverlayPress}
       >
         <View style={[
           styles.modalContainer,
-          Platform.OS === 'web' && styles.webModalContainer as ViewStyle
+          Platform.OS === 'web' && styles.webModalContainer
         ]}>
           <View style={[
             styles.header,
-            Platform.OS === 'web' && styles.webHeader as ViewStyle
+            Platform.OS === 'web' && styles.webHeader
           ]}>
             <View style={styles.headerSpacer} />
             <Text style={[
               styles.modalTitle,
-              Platform.OS === 'web' && styles.webModalTitle as TextStyle
+              Platform.OS === 'web' && styles.webModalTitle
             ]}>{item.name}</Text>
             <TouchableOpacity
               style={[
                 styles.closeButton,
-                Platform.OS === 'web' && styles.webCloseButton as ViewStyle
+                Platform.OS === 'web' && styles.webCloseButton
               ]}
               onPress={onClose}
             >
               <Text style={[
                 styles.closeButtonText,
-                Platform.OS === 'web' && styles.webCloseButtonText as TextStyle
+                Platform.OS === 'web' && styles.webCloseButtonText
               ]}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -185,50 +280,12 @@ export default function MenuModal({
             style={styles.content}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.imageContainer}>
-              {imageLoading && (
-                <View style={[styles.imagePlaceholder, { width: imageStyle.width, height: imageStyle.height }]}>
-                  <ActivityIndicator size="large" color={Platform.OS === 'web' ? '#8D6E63' : '#2E7D32'} />
-                </View>
-              )}
-
-              <Image
-                source={{ uri: highQualityImage }}
-                style={[
-                  styles.image,
-                  imageStyle,
-                  imageLoading && styles.imageHidden
-                ]}
-                resizeMode="contain"
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-              />
-
-              {imageError && (
-                <TouchableOpacity
-                  style={[styles.imagePlaceholder, styles.imageError, { width: imageStyle.width, height: imageStyle.height }]}
-                  onPress={handleRetryLoad}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[
-                    styles.modalErrorText,
-                    Platform.OS === 'web' && styles.webModalErrorText as TextStyle
-                  ]}>🖼️</Text>
-                  <Text style={[
-                    styles.modalErrorText,
-                    Platform.OS === 'web' && styles.webModalErrorText as TextStyle
-                  ]}>Ошибка загрузки изображения</Text>
-                  <Text style={[
-                    styles.retryHint,
-                    Platform.OS === 'web' && styles.webRetryHint as TextStyle
-                  ]}>Нажмите для повторной загрузки</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            {/* ИСПОЛЬЗУЕМ ОТДЕЛЬНЫЙ КОМПОНЕНТ ДЛЯ ИЗОБРАЖЕНИЯ */}
+            <MenuModalImage item={item} onRetry={handleRetryImage} />
 
             <Text style={[
               styles.description,
-              Platform.OS === 'web' && styles.webDescription as TextStyle
+              Platform.OS === 'web' && styles.webDescription
             ]}>
               {item.description}
             </Text>
@@ -237,13 +294,13 @@ export default function MenuModal({
               <View style={styles.priceRow}>
                 <Text style={[
                   styles.priceLabel,
-                  Platform.OS === 'web' && styles.webPriceLabel as TextStyle
+                  Platform.OS === 'web' && styles.webPriceLabel
                 ]}>
                   {quantity > 0 ? 'Общая стоимость:' : 'Цена:'}
                 </Text>
                 <Text style={[
                   styles.price,
-                  Platform.OS === 'web' && styles.webPrice as TextStyle
+                  Platform.OS === 'web' && styles.webPrice
                 ]}>
                   {displayPrice} ₽
                 </Text>
@@ -251,7 +308,7 @@ export default function MenuModal({
               {quantity > 0 && (
                 <Text style={[
                   styles.priceDetails,
-                  Platform.OS === 'web' && styles.webPriceDetails as TextStyle
+                  Platform.OS === 'web' && styles.webPriceDetails
                 ]}>
                   {item.price} ₽ × {quantity} шт.
                 </Text>
@@ -261,17 +318,17 @@ export default function MenuModal({
 
           <View style={[
             styles.quantitySection,
-            Platform.OS === 'web' && styles.webQuantitySection as ViewStyle
+            Platform.OS === 'web' && styles.webQuantitySection
           ]}>
             <View style={[
               styles.quantityControls,
-              Platform.OS === 'web' && styles.webQuantityControls as ViewStyle
+              Platform.OS === 'web' && styles.webQuantityControls
             ]}>
               <TouchableOpacity
                 style={[
                   styles.quantityButton,
                   quantity === 0 && styles.quantityButtonDisabled,
-                  Platform.OS === 'web' && styles.webQuantityButton as ViewStyle
+                  Platform.OS === 'web' && styles.webQuantityButton
                 ]}
                 onPress={handleDecrement}
                 disabled={quantity === 0}
@@ -281,7 +338,7 @@ export default function MenuModal({
 
               <Text style={[
                 styles.quantityText,
-                Platform.OS === 'web' && styles.webQuantityText as TextStyle
+                Platform.OS === 'web' && styles.webQuantityText
               ]}>
                 {quantity}
               </Text>
@@ -289,7 +346,7 @@ export default function MenuModal({
               <TouchableOpacity
                 style={[
                   styles.quantityButton,
-                  Platform.OS === 'web' && styles.webQuantityButton as ViewStyle
+                  Platform.OS === 'web' && styles.webQuantityButton
                 ]}
                 onPress={handleIncrement}
               >
@@ -301,7 +358,7 @@ export default function MenuModal({
               style={[
                 styles.addButton,
                 quantity === 0 && styles.addButtonDisabled,
-                Platform.OS === 'web' && styles.webAddButton as ViewStyle
+                Platform.OS === 'web' && styles.webAddButton
               ]}
               onPress={handleAddToOrder}
               disabled={quantity === 0}
@@ -317,8 +374,9 @@ export default function MenuModal({
   );
 }
 
-// Исправленные стили с правильными типами
+// СТИЛИ ОСТАЮТСЯ БЕЗ ИЗМЕНЕНИЙ
 const styles = StyleSheet.create({
+  // ... существующие стили без изменений
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -358,7 +416,7 @@ const styles = StyleSheet.create({
       shadowOpacity: 0.25,
       shadowRadius: 3.84,
       elevation: 5,
-      backgroundColor: '#FFF8F0', // Кремовый фон для веба
+      backgroundColor: '#FFF8F0',
       borderWidth: 1,
       borderColor: '#F5E6D3',
       overflow: 'hidden',
@@ -398,7 +456,7 @@ const styles = StyleSheet.create({
 
   webModalTitle: Platform.select({
     web: {
-      color: '#5D4037', // Темно-коричневый для веба
+      color: '#5D4037',
     },
     default: {}
   }) as TextStyle,
@@ -414,7 +472,7 @@ const styles = StyleSheet.create({
 
   webCloseButton: Platform.select({
     web: {
-      backgroundColor: '#8D6E63', // Коричневый для веба
+      backgroundColor: '#8D6E63',
     },
     default: {}
   }) as ViewStyle,
@@ -427,7 +485,7 @@ const styles = StyleSheet.create({
 
   webCloseButtonText: Platform.select({
     web: {
-      color: '#FFF8F0', // Кремовый текст для веба
+      color: '#FFF8F0',
     },
     default: {}
   }) as TextStyle,
@@ -478,7 +536,7 @@ const styles = StyleSheet.create({
 
   webModalErrorText: Platform.select({
     web: {
-      color: '#8D6E63', // Коричневый для веба
+      color: '#8D6E63',
     },
     default: {}
   }) as TextStyle,
@@ -492,7 +550,7 @@ const styles = StyleSheet.create({
 
   webRetryHint: Platform.select({
     web: {
-      color: '#8D6E63', // Коричневый для веба
+      color: '#8D6E63',
     },
     default: {}
   }) as TextStyle,
@@ -507,7 +565,7 @@ const styles = StyleSheet.create({
 
   webDescription: Platform.select({
     web: {
-      color: '#8D6E63', // Коричневый для веба
+      color: '#8D6E63',
     },
     default: {}
   }) as TextStyle,
@@ -532,7 +590,7 @@ const styles = StyleSheet.create({
 
   webPriceLabel: Platform.select({
     web: {
-      color: '#2E7D32', // Темно-коричневый для веба
+      color: '#2E7D32',
     },
     default: {}
   }) as TextStyle,
@@ -545,7 +603,7 @@ const styles = StyleSheet.create({
 
   webPrice: Platform.select({
     web: {
-      color: '#2E7D32', // Коричневый для веба
+      color: '#2E7D32',
     },
     default: {}
   }) as TextStyle,
@@ -559,7 +617,7 @@ const styles = StyleSheet.create({
 
   webPriceDetails: Platform.select({
     web: {
-      color: '#8D6E63', // Коричневый для веба
+      color: '#8D6E63',
     },
     default: {}
   }) as TextStyle,
@@ -608,7 +666,7 @@ const styles = StyleSheet.create({
 
   webQuantityButton: Platform.select({
     web: {
-      backgroundColor: '#8D6E63', // Коричневый для веба
+      backgroundColor: '#8D6E63',
     },
     default: {}
   }) as ViewStyle,
@@ -634,7 +692,7 @@ const styles = StyleSheet.create({
 
   webQuantityText: Platform.select({
     web: {
-      color: '#5D4037', // Темно-коричневый для веба
+      color: '#5D4037',
     },
     default: {}
   }) as TextStyle,
@@ -662,7 +720,7 @@ const styles = StyleSheet.create({
     web: {
       maxWidth: 200,
       cursor: 'pointer',
-      backgroundColor: '#8D6E63', // Коричневый для веба
+      backgroundColor: '#8D6E63',
     },
     default: {}
   }) as ViewStyle,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
     Modal,
     View,
@@ -69,6 +69,9 @@ export default function EditMenuItemModal({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const categoryPositions = useRef<{[key: string]: number}>({});
     const categoryWidths = useRef<{[key: string]: number}>({});
+    
+    // Ref для хранения текущего blob URL (ИСПРАВЛЕНИЕ ПРОБЛЕМЫ ПЕРЕРИСОВКИ)
+    const currentBlobUrlRef = useRef<string | null>(null);
 
     // Сбрасываем форму при открытии/закрытии модального окна
     useEffect(() => {
@@ -100,6 +103,14 @@ export default function EditMenuItemModal({
                 setSelectedFile(null);
             }
         }
+        
+        // Очищаем blob URL при закрытии модального окна
+        return () => {
+            if (currentBlobUrlRef.current) {
+                URL.revokeObjectURL(currentBlobUrlRef.current);
+                currentBlobUrlRef.current = null;
+            }
+        };
     }, [visible, item, categories]);
 
     // Автоматический скролл к выбранной категории
@@ -122,17 +133,16 @@ export default function EditMenuItemModal({
         }
     }, [visible, formData.category_id, categories]);
 
-    const handleInputChange = (field: string, value: string) => {
+    const handleInputChange = useCallback((field: string, value: string) => {
         setFormData(prev => ({
             ...prev,
             [field]: value,
         }));
-    };
+    }, []);
 
     // Мобильная версия выбора изображения
     const handleImagePickMobile = async () => {
         try {
-            // Запрашиваем разрешения
             if (Platform.OS !== 'web') {
                 const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
                 if (status !== 'granted') {
@@ -180,8 +190,8 @@ export default function EditMenuItemModal({
         }
     };
 
-    // Обработчик выбора файла (только для веба)
-    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // Обработчик выбора файла (только для веба) - ИСПРАВЛЕННАЯ ВЕРСИЯ
+    const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
@@ -197,11 +207,17 @@ export default function EditMenuItemModal({
             return;
         }
 
-        // Сохраняем файл для загрузки
-        setSelectedFile(file);
+        // Очищаем предыдущий blob URL
+        if (currentBlobUrlRef.current) {
+            URL.revokeObjectURL(currentBlobUrlRef.current);
+            currentBlobUrlRef.current = null;
+        }
 
         // Создаем временный URL для предпросмотра
         const objectUrl = URL.createObjectURL(file);
+        currentBlobUrlRef.current = objectUrl;
+        
+        setSelectedFile(file);
         setSelectedImage(objectUrl);
         setIsNewImage(true);
         setImageError(false);
@@ -211,39 +227,51 @@ export default function EditMenuItemModal({
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
-    };
+    }, []);
 
-    // Функция для получения оптимизированного URL изображения
-    const getDisplayImageUrl = (imageUri: string | null) => {
+    // Функция для получения оптимизированного URL изображения - ИСПРАВЛЕННАЯ ВЕРСИЯ
+    const getDisplayImageUrl = useCallback((imageUri: string | null) => {
         if (!imageUri) return null;
 
+        // Для blob URL возвращаем как есть
         if (imageUri.startsWith('blob:') || imageUri.startsWith('file://') || imageUri.startsWith('content://')) {
             return imageUri;
         }
 
-        return getOptimizedImageUrl(imageUri);
-    };
+        // Для обычных URL добавляем временную метку для предотвращения кеширования
+        return getOptimizedImageUrl(imageUri) + `&v=${Date.now()}`;
+    }, []);
 
-    const handleImageLoad = () => {
+    // Мемоизированный URL для отображения - ИСПРАВЛЕНИЕ ПРОБЛЕМЫ ПЕРЕРИСОВКИ
+    const displayImage = useMemo(() => {
+        return getDisplayImageUrl(selectedImage);
+    }, [selectedImage, getDisplayImageUrl]);
+
+    // Ключ для изображения - предотвращает ненужные перерисовки
+    const imageKey = useMemo(() => {
+        return selectedImage ? `image-${selectedImage.substring(0, 50)}-${Date.now()}` : 'image-placeholder';
+    }, [selectedImage]);
+
+    const handleImageLoad = useCallback(() => {
         setImageLoading(false);
         setImageError(false);
-    };
+    }, []);
 
-    const handleImageError = () => {
+    const handleImageError = useCallback(() => {
         setImageError(true);
         setImageLoading(false);
-    };
+    }, []);
 
-    const handleRetryLoad = () => {
+    const handleRetryLoad = useCallback(() => {
         setImageError(false);
         setImageLoading(true);
-    };
+    }, []);
 
     // Сохранение позиции и ширины категории
-    const saveCategoryLayout = (categoryId: string, x: number, width: number) => {
+    const saveCategoryLayout = useCallback((categoryId: string, x: number, width: number) => {
         categoryPositions.current[categoryId] = x;
         categoryWidths.current[categoryId] = width;
-    };
+    }, []);
 
     // 1. Запрос подписи у сервера
     const getCloudinarySignature = async (existingPublicId?: string): Promise<CloudinarySignature> => {
@@ -414,16 +442,16 @@ export default function EditMenuItemModal({
 
                 // Инвалидируем кеш для нового изображения
                 incrementImageVersion(cloudinaryData.secure_url);
-                } else if (item) {
+            } else if (item) {
                 itemData.cloudinary_public_id = item.cloudinary_public_id;
                 itemData.cloudinary_url = item.image;
                 itemData.image = item.image;
 
                 // Если это существующий товар, тоже инвалидируем кеш
                 incrementImageVersion(item.image);
-                } else {
+            } else {
                 itemData.image = selectedImage;
-                }
+            }
 
             if (item) {
                 await ApiService.updateMenuItem(item.id, itemData);
@@ -450,17 +478,16 @@ export default function EditMenuItemModal({
         }
     };
 
-    const handleClose = () => {
+    const handleClose = useCallback(() => {
         if (!isLoading && !isUploading) {
             // Освобождаем blob URL при закрытии (только для веба)
-            if (Platform.OS === 'web' && selectedImage && selectedImage.startsWith('blob:')) {
-                URL.revokeObjectURL(selectedImage);
+            if (Platform.OS === 'web' && currentBlobUrlRef.current) {
+                URL.revokeObjectURL(currentBlobUrlRef.current);
+                currentBlobUrlRef.current = null;
             }
             onClose();
         }
-    };
-
-    const displayImage = getDisplayImageUrl(selectedImage);
+    }, [isLoading, isUploading, onClose]);
 
     return (
         <Modal
@@ -513,6 +540,7 @@ export default function EditMenuItemModal({
                                     )}
 
                                     <Image
+                                        key={imageKey}
                                         source={{ uri: displayImage }}
                                         style={[
                                             styles.image,
@@ -659,7 +687,6 @@ export default function EditMenuItemModal({
     );
 }
 
-// Стили остаются без изменений
 const styles = StyleSheet.create({
     modalContainer: {
         flex: 1,
